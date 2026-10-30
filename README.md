@@ -1,12 +1,14 @@
 # 🏛️ main-link
-### Transparent Civic Grievance Triage, Live Environmental Telemetry & Multilingual Policy Accountability Platform
+### Transparent Civic Grievance Triage & Multi-Modal Misinformation Detection Platform
 **Built for the FORGE 48-Hour Build-a-thon**  
-*Track: Civic Pulse, Digital Governance & Public Information*
+*Track: Civic Pulse, Digital Governance, Fact-Checking & Public Information*
 
 ---
 
 ## 🌟 Overview
-**main-link** transforms citizen multimodal reports (photos of potholes/broken infrastructure, policy circular PDFs, CSV bulk logs, voice, and text) into verified, severity-ranked municipal tickets backed by real-time weather and air-quality telemetry, live MongoDB persistence, and an interactive AI Civic Agent.
+**main-link** is a dual-engine civic intelligence platform designed for citizen empowerment and public trust:
+1. **Civic Grievance Triage Engine (`/server` & `/client`):** Transforms citizen multimodal reports (photos of potholes/broken infrastructure, policy circular PDFs, CSV bulk logs, voice, and text) into verified, severity-ranked municipal tickets backed by real-time weather and air-quality telemetry, live MongoDB Atlas persistence, and an interactive Gemini AI Civic Agent.
+2. **Misinformation & Deepfake Verification Pipeline (`/detection-pipeline`):** Ingests WhatsApp/Telegram forwards across text, pamphlets/images, video frames, and voice notes. It performs hybrid vector retrieval (`bge-m3` + BM25) over official Indian gazettes/schemes, DeBERTa Natural Language Inference, ViT deepfake video detection, Wav2Vec2 audio spoof detection, and calibrated logistic fusion with verifiable citations.
 
 ### 🛡️ Tiered Civic Governance Rule:
 - 🟢 **Authorized Google Citizens:** Anyone with a verified Google account can report **localized maintenance hazards** (potholes, open drains, garbage overflow, water leaks, broken streetlights, toxic smoke).
@@ -21,6 +23,7 @@ In strict compliance with Hackathon Rule 4 & 7a, **zero mock data or static JSON
 3. **OpenStreetMap Nominatim API:** Live reverse-geocoding of coordinates to municipal ward, street, and city.
 4. **Google Gemini 2.5 Flash:** Multimodal vision & text analysis with cross-verification against live weather/AQI telemetry.
 5. **MongoDB Atlas:** Real-time database persistence and dynamic aggregation.
+6. **FlagEmbedding / BAAI bge-m3 & DeBERTa NLI:** Semantic vector search against verified Indian government sources (`myScheme.gov.in`, `factcheck.pib.gov.in`).
 
 ---
 
@@ -39,6 +42,20 @@ main-link/
 │   ├── middleware/auth.js           # JWT Bearer token validator
 │   ├── server.js                    # REST API endpoints & MongoDB connection
 │   └── package.json
+├── detection-pipeline/  # Python, FastAPI, HuggingFace, FAISS, PyMuPDF, EasyOCR
+│   ├── app/
+│   │   ├── services/
+│   │   │   ├── ingest.py            # [Phase 0] Language ID, OCR, ASR, video extraction
+│   │   │   ├── knowledge_base.py    # [Phase 1] Scraper, chunker, bge-m3 embedder, FAISS + BM25
+│   │   │   ├── text_verifier.py     # [Phase 2] DeBERTa NLI premise-hypothesis engine
+│   │   │   ├── deepfake_detector.py # [Phase 3] ViT video deepfake, Wav2Vec2 spoof, OCR domain check
+│   │   │   └── fusion.py            # [Phase 4] Calibrated logistic regression fusion
+│   │   ├── routers/verify.py        # [Phase 5] FastAPI REST endpoints
+│   │   └── main.py                  # FastAPI app entry point
+│   ├── templates/index.html         # Interactive web application for claim analysis
+│   ├── scripts/build_kb.py          # Knowledge base build script
+│   ├── scripts/evaluate.py          # [Phase 6] 15-claim gold-set evaluation runner
+│   └── requirements.txt
 ├── specs.md             # Complete 10-section Application Specification
 └── ARCHITECTURE_EXPLAINED.md  # Detailed judging viva guide & demo script
 ```
@@ -47,33 +64,31 @@ main-link/
 
 ## ⚡ Quick Start
 
-### 1. Backend Setup
+### 1. Civic Grievance Backend (`server/`)
 ```bash
 cd server
 npm install
-```
-Configure your `server/.env`:
-```env
-PORT=5000
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/mainlink?retryWrites=true&w=majority
-AI_API_KEY=your_gemini_api_key_here
-AI_MODEL=gemini-2.5-flash
-ADMIN_USER=admin
-ADMIN_PASS=forge2026
-JWT_SECRET=mainlink_forge_2026_super_secret_jwt_key
-```
-Start server:
-```bash
 npm run dev
 ```
 
-### 2. Frontend Setup
+### 2. Civic Grievance Frontend (`client/`)
 ```bash
 cd client
 npm install
 npm run dev
 ```
 Open **`http://localhost:5173`** in your browser.
+
+### 3. Misinformation Detection Pipeline (`detection-pipeline/`)
+```bash
+cd detection-pipeline
+pip install -r requirements.txt
+# Build vector knowledge base
+python scripts/build_kb.py
+# Run FastAPI server and UI
+python -m app.main
+```
+Open **`http://localhost:8000/app`** for the claim verification UI or **`http://localhost:8000/docs`** for OpenAPI documentation.
 
 ---
 
