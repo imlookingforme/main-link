@@ -3,7 +3,8 @@ import axios from 'axios';
 import {
   Upload, Mic, MicOff, RefreshCw, Send, AlertTriangle, CheckCircle,
   Clock, MapPin, Shield, ChevronDown, ChevronUp, X, LogIn, LogOut,
-  FileText, Image, File, MessageSquare, BarChart3, Activity, Info
+  FileText, Image, File, MessageSquare, BarChart3, Activity, Info,
+  Volume2, VolumeX
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -14,7 +15,7 @@ import {
 
 const URGENCY_COLORS = { Low: '#138808', Medium: '#EAB308', High: '#FF9933', Critical: '#EF4444' };
 const PIE_COLORS = ['#138808', '#EAB308', '#FF9933', '#EF4444'];
-const LANG_MAP = { English: 'en-IN', Hindi: 'hi-IN', Telugu: 'te-IN' };
+const LANG_MAP = { English: 'en-IN', Hindi: 'hi-IN', Telugu: 'te-IN', Tamil: 'ta-IN', Kannada: 'kn-IN', Bengali: 'bn-IN', Marathi: 'mr-IN', Gujarati: 'gu-IN' };
 const FILTER_TABS = ['All', 'Pending', 'Triaged', 'In Progress', 'Resolved', 'Critical'];
 const EMPTY_STATE_MSG = 'No live grievances recorded yet — upload a civic hazard photo, policy PDF, CSV log, or text report to begin.';
 
@@ -585,6 +586,28 @@ export default function App() {
     setIsListening(false);
   };
 
+  const [speakingId, setSpeakingId] = useState(null);
+
+  const speakText = (id, text, lang = 'English') => {
+    if (!('speechSynthesis' in window)) {
+      addToast('Voice synthesis not supported in this browser', 'error');
+      return;
+    }
+    if (speakingId === id) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = LANG_MAP[lang] || 'en-IN';
+    utterance.rate = 0.95;
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+    setSpeakingId(id);
+    window.speechSynthesis.speak(utterance);
+  };
+
   const handleSubmit = async () => {
     if (!selectedFile && !textInput.trim()) {
       addToast('Please provide a file or text description', 'error');
@@ -825,6 +848,15 @@ export default function App() {
                 </button>
               </>
             )}
+            <a
+              href="http://localhost:8000/app"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-950/60 border border-purple-800/60 text-purple-300 hover:bg-purple-900/60 rounded-lg text-xs font-semibold transition"
+              title="Launch Multi-Modal Fact and Deepfake Verification Engine"
+            >
+              <span>🛡️</span> Fact & Deepfake Audit
+            </a>
           </div>
         </div>
       </header>
@@ -1246,6 +1278,28 @@ export default function App() {
                         </button>
                         {expandedCards[`${g._id || g.id}-explainer`] && (
                           <div className="mt-1.5 p-3 bg-indiaGreen/10 border border-indiaGreen/30 rounded-lg text-sm text-gray-200 whitespace-pre-wrap">
+                            <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-indiaGreen/20">
+                              <span className="text-xs font-semibold text-indiaGreen flex items-center gap-1">
+                                📢 Multilingual Rights & Scheme Voice Explainer
+                              </span>
+                              <button
+                                onClick={() => speakText(g._id || g.id, typeof g.citizenExplainer === 'string' ? g.citizenExplainer : JSON.stringify(g.citizenExplainer), g.preferredLanguage || preferredLanguage)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded bg-indiaGreen/20 hover:bg-indiaGreen/30 text-indiaGreen text-xs font-medium transition"
+                                title="Listen to Regional Voice Explainer"
+                              >
+                                {speakingId === (g._id || g.id) ? (
+                                  <>
+                                    <VolumeX size={13} className="text-red-400" />
+                                    <span className="text-red-400">Stop Audio</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Volume2 size={13} />
+                                    <span>🔊 Listen Explainer</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
                             {typeof g.citizenExplainer === 'string' ? g.citizenExplainer : JSON.stringify(g.citizenExplainer, null, 2)}
                           </div>
                         )}
