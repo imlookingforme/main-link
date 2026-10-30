@@ -542,6 +542,53 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
+  // ── Policy & MSME Explainer State ──
+  const [policyTopic, setPolicyTopic] = useState('');
+  const [policyLanguage, setPolicyLanguage] = useState('Hindi');
+  const [policyAudience, setPolicyAudience] = useState('Citizen');
+  const [policyExplainerLoading, setPolicyExplainerLoading] = useState(false);
+  const [policyResult, setPolicyResult] = useState(null);
+
+  const POLICY_PRESETS = [
+    { title: 'Post-Matric Scholarship (NSP)', query: 'Post-Matric Scholarship for SC/ST/OBC Students 2026 guidelines, eligibility criteria, income ceiling, and benefits.' },
+    { title: 'PM-KISAN Samman Nidhi', query: 'PM-KISAN Samman Nidhi direct benefit transfer scheme details, ₹6000 installment schedule, landholding eligibility, and eKYC requirements.' },
+    { title: 'Ayushman Bharat PM-JAY', query: 'Ayushman Bharat PM-JAY ₹5 lakh cashless healthcare coverage per family, hospital empanelment, and beneficiary eligibility.' },
+    { title: 'PMEGP (MSME 35% Subsidy)', query: 'Prime Minister Employment Generation Programme (PMEGP) credit-linked subsidy scheme for micro enterprises, 35% subsidy for manufacturing up to ₹50 lakh and service up to ₹20 lakh.' },
+    { title: 'PM SVANidhi (Street Vendors)', query: 'PM Street Vendor AtmaNirbhar Nidhi (PM SVANidhi) micro-credit scheme with 7% interest subsidy and collateral-free working capital loan.' },
+  ];
+
+  const handleExplainPolicy = async (customQuery = null) => {
+    const q = customQuery || policyTopic;
+    if (!q.trim()) {
+      addToast('Please enter a policy topic or select a preset scheme.', 'error');
+      return;
+    }
+    setPolicyExplainerLoading(true);
+    try {
+      const res = await axios.post('/api/policy/explain', {
+        schemeOrTopic: q,
+        language: policyLanguage,
+        targetAudience: policyAudience
+      });
+      if (res.data && res.data.success) {
+        setPolicyResult(res.data.data);
+        addToast(`Voice Explainer generated in ${policyLanguage}!`, 'success');
+        if (res.data.data.audioUrl) {
+          if (activeAudio) { activeAudio.pause(); activeAudio.currentTime = 0; }
+          const audio = new Audio(res.data.data.audioUrl);
+          setActiveAudio(audio);
+          setSpeakingId('policy-result');
+          audio.onended = () => { setSpeakingId(null); setActiveAudio(null); };
+          await audio.play();
+        }
+      }
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to generate policy explanation', 'error');
+    } finally {
+      setPolicyExplainerLoading(false);
+    }
+  };
   const fileInputRef = useRef(null);
   const recognitionRef = useRef(null);
 
@@ -587,14 +634,57 @@ export default function App() {
   };
 
   const [speakingId, setSpeakingId] = useState(null);
+  const [activeAudio, setActiveAudio] = useState(null);
+  const [audioLoading, setAudioLoading] = useState(false);
 
-  const speakText = (id, text, lang = 'English') => {
-    if (!('speechSynthesis' in window)) {
-      addToast('Voice synthesis not supported in this browser', 'error');
+  const speakText = async (id, text, lang = 'English') => {
+    if (speakingId === id) {
+      if (activeAudio) {
+        activeAudio.pause();
+        activeAudio.currentTime = 0;
+      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      setActiveAudio(null);
       return;
     }
-    if (speakingId === id) {
-      window.speechSynthesis.cancel();
+
+    if (activeAudio) {
+      activeAudio.pause();
+      activeAudio.currentTime = 0;
+    }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+    setSpeakingId(id);
+    setAudioLoading(true);
+
+    try {
+      const res = await axios.post('/api/voice/synthesize', { text, language: lang });
+      if (res.data && res.data.audioUrl) {
+        const audio = new Audio(res.data.audioUrl);
+        setActiveAudio(audio);
+        audio.onended = () => {
+          setSpeakingId(null);
+          setActiveAudio(null);
+        };
+        audio.onerror = () => {
+          fallbackSpeech(text, lang, id);
+        };
+        await audio.play();
+        setAudioLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.warn("Neural voice API failed, falling back to browser synthesis:", err.message);
+    }
+
+    fallbackSpeech(text, lang, id);
+  };
+
+  const fallbackSpeech = (text, lang, id) => {
+    setAudioLoading(false);
+    if (!('speechSynthesis' in window)) {
+      addToast('Voice synthesis not supported in this browser', 'error');
       setSpeakingId(null);
       return;
     }
@@ -604,7 +694,6 @@ export default function App() {
     utterance.rate = 0.95;
     utterance.onend = () => setSpeakingId(null);
     utterance.onerror = () => setSpeakingId(null);
-    setSpeakingId(id);
     window.speechSynthesis.speak(utterance);
   };
 
@@ -895,6 +984,225 @@ export default function App() {
               </div>
             ))}
           </div>
+        </section>
+
+                {/* ── Multilingual Policy, Rights & Scheme Voice Explainer (Pillar 1) ── */}
+        <section className="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-saffron via-white to-indiaGreen opacity-80" />
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📢</span>
+                <h2 className="text-lg font-bold text-white">Multilingual Policy, Rights &amp; Scheme Voice Explainer</h2>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-saffron/20 text-saffron border border-saffron/30">
+                  Regional Voice Neural Engine
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Converts government notifications, gazettes, and MSME welfare laws into plain-language audio explainers in 8 Indian languages.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Audience:</span>
+              <div className="flex bg-darkBg p-0.5 rounded-lg border border-cardBorder text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPolicyAudience('Citizen')}
+                  className={`px-2.5 py-1 rounded-md transition ${policyAudience === 'Citizen' ? 'bg-indiaGreen text-white font-semibold shadow' : 'text-gray-400 hover:text-white'}`}
+                >
+                  👤 Citizen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPolicyAudience('Small Business / MSME')}
+                  className={`px-2.5 py-1 rounded-md transition ${policyAudience === 'Small Business / MSME' ? 'bg-saffron text-black font-semibold shadow' : 'text-gray-400 hover:text-white'}`}
+                >
+                  🏢 MSME / Business
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Preset Scheme Chips */}
+          <div className="mb-3">
+            <span className="text-xs font-semibold text-gray-400 block mb-1.5">⚡ Quick National Scheme Presets:</span>
+            <div className="flex flex-wrap gap-2">
+              {POLICY_PRESETS.map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setPolicyTopic(p.query);
+                    handleExplainPolicy(p.query);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-darkBg border border-cardBorder text-xs text-gray-300 hover:border-saffron hover:text-white transition flex items-center gap-1.5"
+                >
+                  <span>📌</span> {p.title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Input & Language Bar */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+            <div className="md:col-span-3 relative">
+              <input
+                type="text"
+                value={policyTopic}
+                onChange={(e) => setPolicyTopic(e.target.value)}
+                placeholder="Or paste any government circular, scheme name, or municipal tax rule..."
+                className="w-full px-3.5 py-2.5 bg-darkBg border border-cardBorder rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-saffron"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <select
+                value={policyLanguage}
+                onChange={(e) => setPolicyLanguage(e.target.value)}
+                className="px-3 py-2.5 bg-darkBg border border-cardBorder rounded-lg text-sm text-white focus:outline-none focus:border-saffron flex-1"
+              >
+                <option value="Hindi">Hindi (हिंदी)</option>
+                <option value="Telugu">Telugu (తెలుగు)</option>
+                <option value="Tamil">Tamil (தமிழ்)</option>
+                <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                <option value="Bengali">Bengali (বাংলা)</option>
+                <option value="Marathi">Marathi (मराठी)</option>
+                <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                <option value="English">English</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => handleExplainPolicy()}
+                disabled={policyExplainerLoading}
+                className="px-4 py-2.5 bg-indiaGreen hover:bg-green-700 text-white rounded-lg font-semibold text-xs transition shadow flex items-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+              >
+                {policyExplainerLoading ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Synthesizing...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🎙️</span>
+                    <span>Explain &amp; Play</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Policy Explainer Result Card */}
+          {policyResult && (
+            <div className="bg-darkBg/90 border border-indiaGreen/40 rounded-xl p-4.5 mt-2 animate-fadeIn space-y-4">
+              {/* Header & Audio Control Ribbon */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-cardBorder">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>📜</span> {policyResult.title || 'Verified Policy Analysis'}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">Target: {policyAudience}</span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-300">Language: {policyLanguage}</span>
+                    {policyResult.applicationDeadline && (
+                      <span className="text-amber-400">⏰ Deadline: {policyResult.applicationDeadline}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Voice Audio Player */}
+                <div className="flex items-center gap-2 bg-cardBg/90 px-3.5 py-2 rounded-xl border border-cardBorder">
+                  <button
+                    type="button"
+                    onClick={() => speakText('policy-result', policyResult.citizenExplainer || policyResult.rightsSummary, policyLanguage)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indiaGreen text-white text-xs font-bold hover:bg-green-600 transition shadow"
+                  >
+                    {speakingId === 'policy-result' ? (
+                      <>
+                        <VolumeX size={15} className="text-red-300" />
+                        <span>⏹ Stop Audio</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 size={15} />
+                        <span>🔊 Play Voice Explainer</span>
+                      </>
+                    )}
+                  </button>
+
+                  {speakingId === 'policy-result' && (
+                    <div className="flex items-center gap-1 px-2 text-xs text-indiaGreen font-semibold animate-pulse">
+                      <span>●</span>
+                      <span>Speaking ({policyLanguage})</span>
+                    </div>
+                  )}
+
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`📢 *${policyResult.title}*\n\n⚖️ *Your Rights:* ${policyResult.rightsSummary}\n\n👥 *Eligibility:* ${policyResult.eligibility}\n\n💰 *Benefits/Subsidies:* ${policyResult.subsidiesAndBenefits}\n\n🏛️ *Official Portal:* ${policyResult.officialPortalUrl || 'https://myscheme.gov.in'}\n\nVerified by main-link Civic Engine`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-800/30 hover:bg-emerald-800/50 text-emerald-300 text-xs font-semibold transition"
+                    title="Share Rights InfoCard to WhatsApp"
+                  >
+                    <span>📲</span> Share InfoCard
+                  </a>
+                </div>
+              </div>
+
+              {/* 4-Box Structured Rights Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="p-3 rounded-lg bg-cardBg/60 border border-cardBorder">
+                  <div className="font-bold text-saffron mb-1 flex items-center gap-1.5">
+                    <span>⚖️</span> Statutory Rights &amp; Scope
+                  </div>
+                  <p className="text-gray-300 leading-relaxed">{policyResult.rightsSummary || 'Guaranteed welfare entitlements under Indian administrative framework.'}</p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-cardBg/60 border border-cardBorder">
+                  <div className="font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
+                    <span>👥</span> Eligibility &amp; Criteria
+                  </div>
+                  <p className="text-gray-300 leading-relaxed">{policyResult.eligibility || 'Applicable to qualifying citizens / micro-enterprises with required documentation.'}</p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-cardBg/60 border border-cardBorder">
+                  <div className="font-bold text-amber-400 mb-1 flex items-center gap-1.5">
+                    <span>💰</span> Subsidies &amp; Financial Relief
+                  </div>
+                  <p className="text-gray-300 leading-relaxed">{policyResult.subsidiesAndBenefits || 'Direct Benefit Transfer (DBT) or subsidized capital relief.'}</p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-cardBg/60 border border-cardBorder">
+                  <div className="font-bold text-blue-400 mb-1 flex items-center gap-1.5">
+                    <span>🏛️</span> Official Portal &amp; Redressal
+                  </div>
+                  <p className="text-gray-300 leading-relaxed mb-2">Apply strictly via official zero-fee portals.</p>
+                  {policyResult.officialPortalUrl && (
+                    <a
+                      href={policyResult.officialPortalUrl.startsWith('http') ? policyResult.officialPortalUrl : `https://${policyResult.officialPortalUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-indiaGreen font-bold hover:underline inline-flex items-center gap-1"
+                    >
+                      <span>🔗</span> Visit Portal
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Vernacular Spoken Script Box */}
+              {policyResult.citizenExplainer && (
+                <div className="p-3 rounded-lg bg-indiaGreen/10 border border-indiaGreen/30 text-xs">
+                  <div className="font-bold text-indiaGreen mb-1 flex items-center gap-1">
+                    <span>🗣️</span> Spoken Vernacular Script ({policyLanguage}):
+                  </div>
+                  <p className="text-gray-200 text-sm leading-relaxed">{policyResult.citizenExplainer}</p>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ── D. Multimodal Submission ── */}
@@ -1240,6 +1548,14 @@ export default function App() {
                       )}
                     </div>
 
+                    {/* Clustered Report Badge */}
+                    {(g.citizenImpactCount > 1 || g.isClustered) && (
+                      <div className="mb-2 px-2.5 py-1 rounded-md bg-amber-950/60 border border-amber-800/60 text-amber-300 text-[11px] font-semibold flex items-center gap-1.5 w-fit">
+                        <span>👥</span>
+                        <span>Spatial Cluster: {g.citizenImpactCount || 2} Citizens Reported This Localized Hazard</span>
+                      </div>
+                    )}
+
                     {/* Severity bar */}
                     {g.severity != null && (
                       <div className="mb-3">
@@ -1431,12 +1747,35 @@ export default function App() {
                 )}
                 {chatMessages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] px-4 py-2.5 rounded-xl text-sm whitespace-pre-wrap ${
+                    <div className={`max-w-[80%] px-4 py-2.5 rounded-xl text-sm whitespace-pre-wrap relative group ${
                       msg.role === 'user'
                         ? 'bg-indiaGreen/20 text-green-100 rounded-br-sm'
                         : 'bg-darkBg border border-cardBorder text-gray-200 rounded-bl-sm'
                     }`}>
                       {msg.content}
+                      {msg.role !== 'user' && (
+                        <div className="mt-2 pt-1.5 border-t border-cardBorder/60 flex items-center justify-between">
+                          <span className="text-[10px] text-gray-400">Civic AI Explainer</span>
+                          <button
+                            type="button"
+                            onClick={() => speakText(`chat-${i}`, msg.content, chatLanguage)}
+                            className="flex items-center gap-1 text-[11px] text-indiaGreen hover:text-green-300 font-medium transition"
+                            title="Listen to this explanation"
+                          >
+                            {speakingId === `chat-${i}` ? (
+                              <>
+                                <VolumeX size={12} className="text-red-400" />
+                                <span className="text-red-400">Stop</span>
+                              </>
+                            ) : (
+                              <>
+                                <Volume2 size={12} />
+                                <span>🔊 Listen ({chatLanguage})</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

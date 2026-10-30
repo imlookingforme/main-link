@@ -1,5 +1,8 @@
 require("dotenv").config();
 
+const path = require("path");
+const crypto = require("crypto");
+const { spawn } = require("child_process");
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -458,6 +461,34 @@ app.post("/api/grievances/extract", upload.single("file"), async (req, res) => {
       });
     }
 
+    // ── Spatial Clustering & Deduplication (within ~50m / 0.0005 deg) ──
+    if (latitude && longitude) {
+      const geoThreshold = 0.0005; // approx 55 meters
+      const recentThreshold = new Date(Date.now() - 72 * 60 * 60 * 1000);
+      const existingCluster = await Grievance.findOne({
+        category: aiResult.category,
+        status: { $in: ["Pending", "Triaged", "In Progress"] },
+        "location.lat": { $gte: latitude - geoThreshold, $lte: latitude + geoThreshold },
+        "location.lon": { $gte: longitude - geoThreshold, $lte: longitude + geoThreshold },
+        createdAt: { $gte: recentThreshold },
+      });
+
+      if (existingCluster) {
+        existingCluster.citizenImpactCount = (existingCluster.citizenImpactCount || 1) + 1;
+        existingCluster.isClustered = true;
+        if (existingCluster.citizenImpactCount >= 3 && existingCluster.urgencyLevel !== "Critical") {
+          existingCluster.urgencyLevel = "Critical";
+          existingCluster.severityScore = Math.min(10, (existingCluster.severityScore || 5) + 2);
+        }
+        await existingCluster.save();
+        return res.status(200).json({
+          grievance: existingCluster,
+          clustered: true,
+          message: `Spatial cluster detected: merged with existing ticket #${existingCluster._id.toString().slice(-6)} (${existingCluster.citizenImpactCount} citizen reports).`,
+        });
+      }
+    }
+
     const grievance = new Grievance({
       title: aiResult.title,
       description: text || `Uploaded ${sourceFileType} grievance report`,
@@ -610,6 +641,141 @@ app.delete("/api/grievances/:id", auth, async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// In-Memory Audio Cache & Voice Synthesizer
+// ---------------------------------------------------------------------------
+const audioCache = new Map();
+
+app.post("/api/voice/synthesize", (req, res) => {
+  try {
+    const { text, language = "English" } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: "Text is required for voice synthesis." });
+    }
+
+    const cacheKey = crypto.createHash("md5").update(`${language}:${text}`).digest("hex");
+    if (audioCache.has(cacheKey)) {
+      return res.json(audioCache.get(cacheKey));
+    }
+
+    const scriptPath = path.join(__dirname, "services", "voice_synthesizer.py");
+    const py = spawn("python", [scriptPath, "--json"]);
+
+    let stdoutData = "";
+    let stderrData = "";
+
+    py.stdout.on("data", (chunk) => {
+      stdoutData += chunk.toString();
+    });
+
+    py.stderr.on("data", (chunk) => {
+      stderrData += chunk.toString();
+    });
+
+    py.on("close", (code) => {
+      if (code !== 0) {
+        console.error("[Voice Synthesizer Error]", stderrData);
+        return res.status(500).json({ error: "Voice synthesis failed: " + stderrData });
+      }
+
+      try {
+        const parsed = JSON.parse(stdoutData.trim());
+        if (parsed.success) {
+          audioCache.set(cacheKey, parsed);
+          if (audioCache.size > 300) {
+            const firstKey = audioCache.keys().next().value;
+            audioCache.delete(firstKey);
+          }
+        }
+        return res.json(parsed);
+      } catch (parseErr) {
+        return res.status(500).json({ error: "Failed to parse synthesis output." });
+      }
+    });
+
+    py.stdin.write(JSON.stringify({ text, language }));
+    py.stdin.end();
+  } catch (err) {
+    console.error("[Voice Route Error]", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Multilingual Policy, Rights & Scheme Explainer Generator
+// ---------------------------------------------------------------------------
+app.post("/api/policy/explain", async (req, res) => {
+  try {
+    const { schemeOrTopic, language = "English", targetAudience = "Citizen" } = req.body;
+    if (!schemeOrTopic || !schemeOrTopic.trim()) {
+      return res.status(400).json({ error: "Scheme name or policy topic is required." });
+    }
+
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const apiKey = process.env.AI_API_KEY;
+    if (!apiKey || apiKey === "replace_me") {
+      return res.status(503).json({ error: "AI features unavailable - configure AI_API_KEY in server/.env" });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: process.env.AI_MODEL || "gemini-2.5-flash",
+      systemInstruction: `You are main-link Policy & Rights Explainer. Your mission is to analyze government welfare schemes, circulars, and laws, converting them into plain-language actionable rights for ${targetAudience}s in India. You MUST return ONLY valid JSON with keys:
+- title: string
+- rightsSummary: string (Exact legal/welfare rights in 2 sentences)
+- eligibility: string (Who qualifies, income/caste/age caps)
+- subsidiesAndBenefits: string (Exact financial subsidies %, loan caps, or tax exemptions)
+- citizenExplainer: string (Spoken explainer in ${language}, written naturally in ${language} script)
+- officialPortalUrl: string
+- applicationDeadline: string`,
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
+      }
+    });
+
+    const prompt = `Explain the following Indian government scheme, policy notification, or law for ${targetAudience} in ${language}:
+
+"${schemeOrTopic}"
+
+Ensure citizenExplainer is in pure, conversational ${language} suitable for text-to-speech audio narration.`;
+    const result = await model.generateContent(prompt);
+    const explainerData = JSON.parse(result.response.text());
+
+    // Generate audio for citizenExplainer
+    const scriptPath = path.join(__dirname, "services", "voice_synthesizer.py");
+    const py = spawn("python", [scriptPath, "--json"]);
+
+    let stdoutData = "";
+    py.stdout.on("data", (chunk) => { stdoutData += chunk.toString(); });
+    py.on("close", (code) => {
+      let audioUrl = "";
+      if (code === 0) {
+        try {
+          const parsed = JSON.parse(stdoutData.trim());
+          if (parsed.success) audioUrl = parsed.audioUrl;
+        } catch (_) {}
+      }
+      return res.json({
+        success: true,
+        data: {
+          ...explainerData,
+          audioUrl,
+          language
+        }
+      });
+    });
+
+    py.stdin.write(JSON.stringify({ text: explainerData.citizenExplainer || explainerData.rightsSummary, language }));
+    py.stdin.end();
+
+  } catch (err) {
+    console.error("[Policy Explainer Error]", err.message);
+    return res.status(500).json({ error: "Failed to generate policy explanation: " + err.message });
+  }
+});
+
 // Global error handler
 // ---------------------------------------------------------------------------
 app.use((err, _req, res, _next) => {

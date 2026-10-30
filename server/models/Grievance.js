@@ -92,6 +92,18 @@ const grievanceSchema = new mongoose.Schema(
       role: { type: String, enum: ["Citizen", "Official"], default: "Citizen" },
       authProvider: { type: String, enum: ["google", "official_credentials"], default: "google" },
     },
+    citizenImpactCount: {
+      type: Number,
+      default: 1,
+    },
+    isClustered: {
+      type: Boolean,
+      default: false,
+    },
+    audioUrl: {
+      type: String,
+      default: "",
+    },
     redressalRemarks: {
       type: String,
       default: "",
