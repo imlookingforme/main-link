@@ -101,9 +101,37 @@ class MultimodalFactAndDeepfakeEngine:
         self._nli_model = None
         self._embedder = None
 
-        # ── Ground-Truth Official Scheme Registry ──
-        # Indexed from myScheme.gov.in, scholarships.gov.in, parivahan.gov.in, pmkisan.gov.in
-        self.gov_registry = [
+        # ── Ground-Truth Official Scheme Registry (Synced with MongoDB Atlas) ──
+        self.gov_registry = self._load_registry_from_mongo()
+
+    def _load_registry_from_mongo(self) -> List[Dict[str, Any]]:
+        """Loads official scraped schemes directly from MongoDB Atlas collection."""
+        mongo_uri = os.getenv("MONGODB_URI")
+        if not mongo_uri:
+            # Check server/.env fallback
+            try:
+                from dotenv import load_dotenv
+                server_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "server", ".env"))
+                load_dotenv(server_env)
+                mongo_uri = os.getenv("MONGODB_URI", "")
+            except Exception:
+                pass
+        db_name = os.getenv("MONGODB_DB", "mainlink_db")
+        if mongo_uri:
+            try:
+                import pymongo
+                client = pymongo.MongoClient(mongo_uri, serverSelectionTimeoutMS=4000)
+                db = client[db_name]
+                schemes_col = db["official_schemes"]
+                records = list(schemes_col.find({}, {"_id": 0}))
+                if records and len(records) > 0:
+                    logger.info(f"[MongoDB Sync] Successfully loaded {len(records)} official scraped schemes from MongoDB Atlas.")
+                    return records
+            except Exception as e:
+                logger.warning(f"[MongoDB Sync] Could not connect to MongoDB Atlas ({e}); using internal ground-truth buffer.")
+
+        # Resilient local fallback
+        return [
             {
                 "scheme_id": "NSP-POST-MATRIC-2026",
                 "scheme_name": "Post-Matric Scholarship for SC/ST/OBC Students",

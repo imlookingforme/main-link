@@ -83,5 +83,20 @@ Open **`http://localhost:8000/docs`** for the complete OpenAPI / Swagger specifi
 | `POST` | `/api/audit/comprehensive` | Full multimodal forensic audit (text, image, audio) |
 | `POST` | `/api/verify/text` | Text NLI verification against official gazette registry |
 | `POST` | `/api/verify/multimodal` | Multipart upload intake (text + media) |
+| `POST` | `/api/kb/scrape-to-mongo` | Scrapes official .gov.in portals directly (no API) and seeds MongoDB Atlas |
 | `WS` | `/api/ws/apply/{scheme_id}` | Playwright browser automation with live progress emitter |
 | `GET` | `/api/health` | Service & model readiness status |
+
+## Official Government Web Scraper (Strictly No API)
+
+The pipeline incorporates a direct HTML/DOM scraper (`detection-pipeline/scripts/scrape_and_seed_mongo.py`) that periodically parses official `.gov.in` sites and stores verified records into MongoDB Atlas:
+- **`official_schemes`**: Ingests scheme criteria, benefits, eligibility, and verified URLs from `myscheme.gov.in`, `scholarships.gov.in`, `pmkisan.gov.in`, `pmjay.gov.in`, and `pmvishwakarma.gov.in`.
+- **`government_fact_checks`**: Ingests official press releases and debunk bulletins from `factcheck.pib.gov.in` and `pib.gov.in`.
+- **`official_portals`**: Whitelists trusted Indian government domains against phishing TLDs.
+
+To trigger scraping manually from CLI:
+```bash
+python scripts/scrape_and_seed_mongo.py
+```
+Or click the **🌐 Scrape & Sync to MongoDB** button on the web interface header (`http://localhost:8000/app`).
+

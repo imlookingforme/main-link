@@ -143,6 +143,31 @@ async def audit_comprehensive(
     }
 
 
+@router.post("/kb/scrape-to-mongo")
+async def trigger_scrape_to_mongo():
+    """
+    STRICT REQUIREMENT: NO API - ONLY WEB SCRAPING.
+    Scrapes official Indian government websites directly via HTML/BeautifulSoup
+    and seeds/updates MongoDB Atlas collections (official_schemes, government_fact_checks, official_portals).
+    """
+    try:
+        from scripts.scrape_and_seed_mongo import MongoDataSeeder
+        seeder = MongoDataSeeder()
+        summary = seeder.seed_all()
+        # Refresh the active in-memory engine registry from MongoDB
+        engine = get_forensic_engine()
+        engine.gov_registry = engine._load_registry_from_mongo()
+        return {
+            "status": "success",
+            "message": "Scraped data successfully stored into MongoDB Atlas collections.",
+            "database": "mainlink_db",
+            "summary": summary
+        }
+    except Exception as e:
+        logger.error(f"Scrape to MongoDB failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/verify/text", response_model=VerificationResponse)
 async def verify_text(request: TextVerifyRequest):
     """Verifies text claim against government registry."""

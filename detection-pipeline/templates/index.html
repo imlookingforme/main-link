@@ -61,10 +61,14 @@
                     <p class="text-xs text-slate-400">Deepfake Forensics & Autonomous Scheme Execution</p>
                 </div>
             </div>
-            <div class="flex items-center gap-4 text-xs">
+            <div class="flex items-center gap-3 text-xs">
+                <button onclick="triggerScrapeToMongo()" id="scrapeMongoBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold text-white shadow-sm transition-all">
+                    <span>🌐</span>
+                    <span id="scrapeBtnText">Scrape & Sync to MongoDB</span>
+                </button>
                 <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-emerald-400">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span id="healthText">Registry: 5 Schemes Live</span>
+                    <span id="healthText">MongoDB Atlas Live</span>
                 </div>
                 <a href="/docs" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
                     Swagger Docs
@@ -471,6 +475,29 @@
             row.textContent = `> ${msg}`;
             logBox.appendChild(row);
             logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        async function triggerScrapeToMongo() {
+            const btn = document.getElementById('scrapeMongoBtn');
+            const text = document.getElementById('scrapeBtnText');
+            btn.disabled = true;
+            text.textContent = 'Scraping live gov portals...';
+            try {
+                const resp = await fetch('/api/kb/scrape-to-mongo', { method: 'POST' });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                alert(`✅ Official Government Portals Scraped Successfully!\n\n` +
+                      `• Schemes Ingested: ${data.summary.official_schemes_count}\n` +
+                      `• Fact Checks Ingested: ${data.summary.government_fact_checks_count}\n` +
+                      `• Portals Whitelisted: ${data.summary.official_portals_count}\n` +
+                      `\nDatabase: MongoDB Atlas (mainlink_db)`);
+                document.getElementById('healthText').textContent = `MongoDB: ${data.summary.official_schemes_count} Schemes Live`;
+            } catch (err) {
+                alert(`Scraping / MongoDB sync failed: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                text.textContent = 'Scrape & Sync to MongoDB';
+            }
         }
 
         function closeApplyModal() {

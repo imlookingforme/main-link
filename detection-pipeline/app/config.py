@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     )
     whatsapp_verify_token: str = Field(default="", alias="WHATSAPP_VERIFY_TOKEN")
 
+    # ── MongoDB Atlas ──
+    mongodb_uri: str = Field(default="", alias="MONGODB_URI")
+    mongodb_db: str = Field(default="mainlink_db", alias="MONGODB_DB")
+
     # ── Paths ──
     knowledge_base_dir: str = Field(
         default="./knowledge_base", alias="KNOWLEDGE_BASE_DIR"
@@ -75,6 +79,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         populate_by_name = True
+        extra = "ignore"
 
 
 @lru_cache()
