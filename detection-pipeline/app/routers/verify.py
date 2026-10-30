@@ -1,20 +1,23 @@
 """
-Verification API Router
-========================
-POST /api/verify/text      — text-only verification
-POST /api/verify/multimodal — text + image/video/audio
-GET  /api/health            — health check
-GET  /api/kb/status         — knowledge base status
-POST /api/kb/build          — trigger knowledge base build
+Verification & Autonomous Bureaucracy API Router
+================================================
+Endpoints:
+- POST /api/verify/text         — Text NLI verification against government registry
+- POST /api/verify/multimodal   — Complete forensic audit (text, image, audio, video)
+- POST /api/audit/comprehensive — Deepfake + FEVER NLI + Phishing analysis
+- WS   /ws/apply/{scheme_id}    — Real-time Playwright execution agent with live progress
+- GET  /api/health              — Health & model readiness check
 """
 from __future__ import annotations
 
 import io
 import time
+import json
 import tempfile
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, File, Form, UploadFile, HTTPException
+from fastapi import APIRouter, File, Form, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
 from loguru import logger
 from PIL import Image
 
@@ -29,388 +32,212 @@ from app.models.schemas import (
 )
 from app.services.knowledge_base import KnowledgeBaseBuilder
 from app.services.text_verifier import TextVerifier
-from app.services.deepfake_detector import (
-    VideoDeepfakeDetector,
-    AudioSpoofDetector,
-    ImagePamphletAnalyzer,
-)
+from app.services.deepfake_detector import VideoDeepfakeDetector, AudioSpoofDetector, ImagePamphletAnalyzer
 from app.services.fusion import FusionLayer, FusionInput
 from app.services.ingest import IngestRouter
+from app.services.multimodal_engine import MultimodalFactAndDeepfakeEngine, ForensicReport
+from app.services.playwright_agent import PlaywrightExecutionAgent
 
 router = APIRouter(prefix="/api", tags=["verification"])
 
-# ── Lazy-loaded singletons ──
-_kb: KnowledgeBaseBuilder | None = None
-_text_verifier: TextVerifier | None = None
-_video_detector: VideoDeepfakeDetector | None = None
-_audio_detector: AudioSpoofDetector | None = None
-_image_analyzer: ImagePamphletAnalyzer | None = None
-_fusion: FusionLayer | None = None
-_ingest: IngestRouter | None = None
+# Lazy singletons
+_kb: Optional[KnowledgeBaseBuilder] = None
+_forensic_engine: Optional[MultimodalFactAndDeepfakeEngine] = None
+_playwright_agent: Optional[PlaywrightExecutionAgent] = None
+_ingest: Optional[IngestRouter] = None
 
+def get_forensic_engine() -> MultimodalFactAndDeepfakeEngine:
+    global _forensic_engine
+    if _forensic_engine is None:
+        _forensic_engine = MultimodalFactAndDeepfakeEngine()
+    return _forensic_engine
 
-def _get_kb() -> KnowledgeBaseBuilder:
-    global _kb
-    if _kb is None:
-        _kb = KnowledgeBaseBuilder()
-        _kb.load_documents()
-        try:
-            _kb.load_faiss_index()
-            _kb.build_bm25()
-        except Exception as e:
-            logger.warning(f"KB index not ready: {e}")
-    return _kb
+def get_playwright_agent() -> PlaywrightExecutionAgent:
+    global _playwright_agent
+    if _playwright_agent is None:
+        _playwright_agent = PlaywrightExecutionAgent(headless=True)
+    return _playwright_agent
 
-
-def _get_text_verifier() -> TextVerifier:
-    global _text_verifier
-    if _text_verifier is None:
-        _text_verifier = TextVerifier(kb=_get_kb())
-    return _text_verifier
-
-
-def _get_video_detector() -> VideoDeepfakeDetector:
-    global _video_detector
-    if _video_detector is None:
-        _video_detector = VideoDeepfakeDetector()
-    return _video_detector
-
-
-def _get_audio_detector() -> AudioSpoofDetector:
-    global _audio_detector
-    if _audio_detector is None:
-        _audio_detector = AudioSpoofDetector()
-    return _audio_detector
-
-
-def _get_image_analyzer() -> ImagePamphletAnalyzer:
-    global _image_analyzer
-    if _image_analyzer is None:
-        _image_analyzer = ImagePamphletAnalyzer()
-    return _image_analyzer
-
-
-def _get_fusion() -> FusionLayer:
-    global _fusion
-    if _fusion is None:
-        _fusion = FusionLayer()
-    return _fusion
-
-
-def _get_ingest() -> IngestRouter:
+def get_ingest() -> IngestRouter:
     global _ingest
     if _ingest is None:
         _ingest = IngestRouter()
     return _ingest
 
 
-# ─────────────────────────── Endpoints ───────────────────────────
-
+# ─────────────────────────── REST Endpoints ───────────────────────────
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
-    kb = _get_kb()
-    models = []
-    if kb.documents:
-        models.append("knowledge_base")
-    if kb._faiss_index:
-        models.append("faiss_index")
+    engine = get_forensic_engine()
+    models = [
+        engine.vis_model_id,
+        engine.aud_model_id,
+        engine.nli_model_id,
+        "playwright_execution_agent"
+    ]
     return HealthResponse(
         status="ok",
-        version="1.0.0",
-        knowledge_base_docs=len(kb.documents),
+        version="2.0.0",
+        knowledge_base_docs=len(engine.gov_registry),
         models_loaded=models,
     )
 
 
-@router.get("/kb/status", response_model=KnowledgeBaseStatus)
-async def kb_status():
-    """Get knowledge base status."""
-    kb = _get_kb()
-    return KnowledgeBaseStatus(
-        total_documents=len(kb.documents),
-        index_built=kb._faiss_index is not None,
-        last_updated=kb.docs_path.stat().st_mtime.__str__()
-        if kb.docs_path.exists()
-        else "",
-        sources=list(set(d.doc_type for d in kb.documents)),
+@router.post("/audit/comprehensive")
+async def audit_comprehensive(
+    text: str = Form(default=""),
+    image: Optional[UploadFile] = File(default=None),
+    audio: Optional[UploadFile] = File(default=None),
+):
+    """
+    Unified forensic audit:
+    - ViT FaceForensics++ video/image deepfake audit
+    - Wav2Vec2 voice cloning/TTS audit
+    - DeBERTa-v3 FEVER NLI verification against official registries
+    - Phishing URL and unauthorized fee scanner
+    """
+    engine = get_forensic_engine()
+
+    image_obj = None
+    if image is not None:
+        try:
+            img_bytes = await image.read()
+            image_obj = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        except Exception as e:
+            logger.warning(f"Could not parse uploaded image: {e}")
+
+    audio_arr = None
+    if audio is not None:
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp.write(await audio.read())
+                tmp_path = tmp.name
+            ingest = get_ingest()
+            audio_arr, _ = ingest.extract_audio(tmp_path, target_sr=16000)
+            Path(tmp_path).unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning(f"Could not parse uploaded audio: {e}")
+
+    report = engine.audit_full(
+        claim_text=text,
+        image_data=image_obj,
+        audio_data=audio_arr,
     )
 
-
-@router.post("/kb/build")
-async def build_knowledge_base():
-    """Trigger knowledge base build/rebuild."""
-    try:
-        kb = _get_kb()
-        count = kb.build()
-        return {
-            "status": "success",
-            "documents_indexed": count,
-            "message": f"Knowledge base built with {count} chunks",
-        }
-    except Exception as e:
-        logger.error(f"KB build failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "verdict": report.verdict,
+        "confidence": report.confidence,
+        "fake_probability": report.fake_probability,
+        "claim_text": report.claim_text,
+        "ground_truth_excerpt": report.ground_truth_excerpt,
+        "matched_scheme_id": report.matched_scheme_id,
+        "official_source": report.official_source,
+        "direct_apply_url": report.direct_apply_url,
+        "modality_breakdown": report.modality_breakdown,
+        "suspicious_flags": report.suspicious_flags,
+        "mascot_explanation": report.mascot_explanation,
+        "can_auto_apply": report.can_auto_apply,
+        "processing_time_ms": report.processing_time_ms
+    }
 
 
 @router.post("/verify/text", response_model=VerificationResponse)
 async def verify_text(request: TextVerifyRequest):
-    """Verify a text claim against the knowledge base."""
-    start_time = time.time()
+    """Verifies text claim against government registry."""
+    engine = get_forensic_engine()
+    report = engine.audit_full(claim_text=request.text)
 
-    try:
-        ingest = _get_ingest()
-        verifier = _get_text_verifier()
-        fusion = _get_fusion()
+    evidence = []
+    if report.ground_truth_excerpt:
+        evidence.append(EvidenceItem(
+            text=report.ground_truth_excerpt,
+            source_url=report.official_source or "",
+            scheme_name=report.matched_scheme_id or "Central Registry",
+            score=report.confidence
+        ))
 
-        # Language detection
-        language = request.language
-        if language == "auto":
-            language = ingest.detect_language(request.text)
-
-        # Run text verification
-        text_result = verifier.verify(request.text, language=language)
-
-        # Map text verdict to score for fusion
-        text_score = None
-        if text_result.verdict == "Verified":
-            text_score = 1.0 - text_result.confidence  # Low fake score
-        elif text_result.verdict == "Fake/Scam":
-            text_score = text_result.confidence  # High fake score
-        else:
-            text_score = 0.5  # Uncertain
-
-        # Fuse (text-only)
-        fusion_input = FusionInput(
-            text_score=text_score,
-            text_verdict=text_result.verdict,
-            suspicious_signals=text_result.suspicious_signals,
-        )
-        fusion_result = fusion.fuse(fusion_input)
-
-        # Build response
-        evidence = []
-        for ev in text_result.evidence[:5]:
-            evidence.append(EvidenceItem(
-                text=ev.get("text", ""),
-                source_url=ev.get("source_url", ""),
-                scheme_name=ev.get("scheme_name", ""),
-                score=ev.get("support_score", ev.get("contradiction_score", ev.get("retrieval_score", 0.0))),
-            ))
-
-        elapsed_ms = (time.time() - start_time) * 1000
-
-        return VerificationResponse(
-            verdict=fusion_result.verdict,
-            confidence=fusion_result.confidence,
-            fake_probability=fusion_result.fake_probability,
-            explanation=fusion_result.explanation,
-            evidence=evidence,
-            modality_scores=[
-                ModalityScore(modality="text", score=text_score or 0.5, details={
-                    "nli_verdict": text_result.verdict,
-                    "nli_confidence": text_result.confidence,
-                }),
-            ],
-            suspicious_signals=text_result.suspicious_signals,
-            detected_language=language,
-            original_text=request.text,
-            normalized_text=text_result.normalized_claim,
-            processing_time_ms=elapsed_ms,
-        )
-
-    except Exception as e:
-        logger.error(f"Text verification failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return VerificationResponse(
+        verdict=report.verdict,
+        confidence=report.confidence,
+        fake_probability=report.fake_probability,
+        explanation=report.mascot_explanation,
+        evidence=evidence,
+        modality_scores=[
+            ModalityScore(modality="nli_registry", score=1.0 - report.fake_probability, details={
+                "scheme_id": report.matched_scheme_id,
+                "flags_count": len(report.suspicious_flags)
+            })
+        ],
+        suspicious_signals=report.suspicious_flags,
+        detected_language=request.language or "en",
+        original_text=request.text,
+        normalized_text=request.text,
+        processing_time_ms=report.processing_time_ms
+    )
 
 
-@router.post("/verify/multimodal", response_model=VerificationResponse)
+@router.post("/verify/multimodal")
 async def verify_multimodal(
     text: str = Form(default=""),
     language: str = Form(default="auto"),
-    image: UploadFile | None = File(default=None),
-    video: UploadFile | None = File(default=None),
-    audio: UploadFile | None = File(default=None),
+    image: Optional[UploadFile] = File(default=None),
+    video: Optional[UploadFile] = File(default=None),
+    audio: Optional[UploadFile] = File(default=None),
 ):
-    """Multi-modal verification: text + optional image/video/audio."""
-    start_time = time.time()
+    """Full multimodal intake."""
+    return await audit_comprehensive(text=text, image=image, audio=audio)
+
+
+# ─────────────────────────── WebSocket Execution Agent ───────────────────────────
+
+@router.websocket("/ws/apply/{scheme_id}")
+async def one_click_apply_agent_ws(websocket: WebSocket, scheme_id: str):
+    """
+    Playwright Browser Automation Agent WebSocket.
+    Streams progress from 0% to 100% directly to the live frontend progress bar.
+    """
+    await websocket.accept()
+    logger.info(f"WebSocket client connected for scheme application: {scheme_id}")
+
+    agent = get_playwright_agent()
+
+    async def emit_progress(step: int, pct: int, msg: str, screenshot: Optional[str] = None):
+        payload = {
+            "step": step,
+            "progress_percent": pct,
+            "status_message": msg,
+            "screenshot_url": screenshot
+        }
+        await websocket.send_text(json.dumps(payload))
 
     try:
-        ingest = _get_ingest()
-        fusion = _get_fusion()
-
-        fusion_input = FusionInput()
-        modality_scores = []
-        all_evidence = []
-        suspicious_signals = []
-
-        # ── TEXT ──
-        if text.strip():
-            verifier = _get_text_verifier()
-            if language == "auto":
-                language = ingest.detect_language(text)
-
-            text_result = verifier.verify(text, language=language)
-
-            if text_result.verdict == "Verified":
-                fusion_input.text_score = 1.0 - text_result.confidence
-            elif text_result.verdict == "Fake/Scam":
-                fusion_input.text_score = text_result.confidence
-            else:
-                fusion_input.text_score = 0.5
-
-            fusion_input.text_verdict = text_result.verdict
-            suspicious_signals.extend(text_result.suspicious_signals)
-
-            modality_scores.append(ModalityScore(
-                modality="text", score=fusion_input.text_score,
-                details={"verdict": text_result.verdict, "confidence": text_result.confidence},
-            ))
-
-            for ev in text_result.evidence[:3]:
-                all_evidence.append(EvidenceItem(
-                    text=ev.get("text", ""),
-                    source_url=ev.get("source_url", ""),
-                    scheme_name=ev.get("scheme_name", ""),
-                    score=ev.get("support_score", ev.get("retrieval_score", 0.0)),
-                ))
-
-        # ── IMAGE ──
-        if image is not None:
-            try:
-                img_bytes = await image.read()
-                pil_image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-
-                analyzer = _get_image_analyzer()
-                img_result = analyzer.analyze(pil_image)
-
-                fusion_input.image_score = img_result.confidence
-                suspicious_signals.extend(img_result.suspicious_elements)
-
-                modality_scores.append(ModalityScore(
-                    modality="image", score=img_result.confidence,
-                    details={
-                        "is_fake": img_result.is_fake,
-                        "ai_generated_score": img_result.ai_generated_score,
-                        "ocr_text_length": len(img_result.ocr_text),
-                    },
-                ))
-
-                # If OCR found text, also run text verification on it
-                if img_result.ocr_text and not text.strip():
-                    verifier = _get_text_verifier()
-                    ocr_text_result = verifier.verify(img_result.ocr_text)
-                    if ocr_text_result.verdict != "Unverified":
-                        fusion_input.text_score = (
-                            1.0 - ocr_text_result.confidence
-                            if ocr_text_result.verdict == "Verified"
-                            else ocr_text_result.confidence
-                        )
-                        fusion_input.text_verdict = ocr_text_result.verdict
-
-            except Exception as e:
-                logger.error(f"Image processing failed: {e}")
-                suspicious_signals.append(f"Image analysis failed: {str(e)}")
-
-        # ── VIDEO ──
-        if video is not None:
-            try:
-                with tempfile.NamedTemporaryFile(
-                    suffix=".mp4", delete=False
-                ) as tmp:
-                    tmp.write(await video.read())
-                    tmp_path = tmp.name
-
-                # Extract frames
-                frames = ingest.extract_frames(tmp_path, fps=1.0, max_frames=20)
-                audio_arr, audio_sr = ingest.extract_audio(tmp_path)
-
-                # Video analysis
-                if frames:
-                    detector = _get_video_detector()
-                    vid_result = detector.analyze_video(frames)
-                    fusion_input.video_score = vid_result.confidence
-
-                    modality_scores.append(ModalityScore(
-                        modality="video", score=vid_result.confidence,
-                        details={
-                            "is_deepfake": vid_result.is_deepfake,
-                            "frames_analyzed": vid_result.num_frames_analyzed,
-                            "suspicious_frames": vid_result.suspicious_frames,
-                        },
-                    ))
-
-                # Audio from video
-                if audio_arr is not None:
-                    audio_det = _get_audio_detector()
-                    aud_result = audio_det.analyze_audio(audio_arr, audio_sr)
-                    fusion_input.audio_score = aud_result.confidence
-
-                    modality_scores.append(ModalityScore(
-                        modality="audio", score=aud_result.confidence,
-                        details={
-                            "is_spoofed": aud_result.is_spoofed,
-                            "duration_seconds": aud_result.duration_seconds,
-                        },
-                    ))
-
-                # Cleanup
-                Path(tmp_path).unlink(missing_ok=True)
-
-            except Exception as e:
-                logger.error(f"Video processing failed: {e}")
-                suspicious_signals.append(f"Video analysis failed: {str(e)}")
-
-        # ── AUDIO (standalone) ──
-        if audio is not None:
-            try:
-                with tempfile.NamedTemporaryFile(
-                    suffix=".wav", delete=False
-                ) as tmp:
-                    tmp.write(await audio.read())
-                    tmp_path = tmp.name
-
-                audio_arr, audio_sr = ingest.extract_audio(tmp_path)
-                if audio_arr is not None:
-                    audio_det = _get_audio_detector()
-                    aud_result = audio_det.analyze_audio(audio_arr, audio_sr)
-                    fusion_input.audio_score = aud_result.confidence
-
-                    modality_scores.append(ModalityScore(
-                        modality="audio", score=aud_result.confidence,
-                        details={
-                            "is_spoofed": aud_result.is_spoofed,
-                            "duration_seconds": aud_result.duration_seconds,
-                        },
-                    ))
-
-                Path(tmp_path).unlink(missing_ok=True)
-
-            except Exception as e:
-                logger.error(f"Audio processing failed: {e}")
-                suspicious_signals.append(f"Audio analysis failed: {str(e)}")
-
-        # ── FUSION ──
-        fusion_input.suspicious_signals = suspicious_signals
-        fusion_result = fusion.fuse(fusion_input)
-
-        elapsed_ms = (time.time() - start_time) * 1000
-
-        return VerificationResponse(
-            verdict=fusion_result.verdict,
-            confidence=fusion_result.confidence,
-            fake_probability=fusion_result.fake_probability,
-            explanation=fusion_result.explanation,
-            evidence=all_evidence,
-            modality_scores=modality_scores,
-            suspicious_signals=suspicious_signals,
-            detected_language=language,
-            original_text=text,
-            normalized_text=ingest.normalize_text(text) if text else "",
-            processing_time_ms=elapsed_ms,
+        result = await agent.execute_application(
+            scheme_id=scheme_id,
+            progress_callback=emit_progress
         )
-
+        await websocket.send_text(json.dumps({
+            "step": 5,
+            "progress_percent": 100,
+            "status_message": f"Application Successful! Ref: {result.get('reference_id')}",
+            "receipt_url": result.get("receipt_url"),
+            "result": result
+        }))
+    except WebSocketDisconnect:
+        logger.warning(f"Client disconnected during execution of {scheme_id}")
     except Exception as e:
-        logger.error(f"Multi-modal verification failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"WebSocket execution error: {e}")
+        try:
+            await websocket.send_text(json.dumps({
+                "step": 0,
+                "progress_percent": 0,
+                "error": str(e)
+            }))
+        except Exception:
+            pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass

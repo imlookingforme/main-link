@@ -19,3 +19,4 @@ knowledge_base/sources/*.html
 models_cache/
 .cache/
 lid.176.bin
+static/receipts/*.png

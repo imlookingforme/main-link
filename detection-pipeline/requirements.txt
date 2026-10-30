@@ -56,7 +56,8 @@ aiohttp==3.11.11
 paddleocr>=2.7.0.0; sys_platform != 'win32'
 easyocr==1.7.2
 
-# WhatsApp / Telegram bot
+# WhatsApp / Telegram bot & Browser Automation
+playwright>=1.40.0
 python-telegram-bot==21.9
 
 # Utilities
