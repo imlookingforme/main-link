@@ -158,11 +158,13 @@ You can report localized civic hazards (potholes, burst water mains, uncollected
   // ───────────────────────────────────────────────────────────────────────────
   // 5. General Scheme Matching against 28 MongoDB Schemes
   // ───────────────────────────────────────────────────────────────────────────
-  const matched = schemes.find(s => 
-    lower.includes(s.scheme_name.toLowerCase()) || 
-    s.scheme_name.toLowerCase().includes(lower) ||
-    lower.includes(s.scheme_id.toLowerCase())
-  );
+  const matched = schemes.find(s => {
+    const sName = (s.scheme_name || '').toLowerCase();
+    const sId = (s.scheme_id || '').toLowerCase();
+    if (lower.includes(sName) || sName.includes(lower) || lower.includes(sId)) return true;
+    const tokens = lower.split(/\s+/).filter(w => w.length > 3);
+    return tokens.some(t => sName.includes(t) || sId.includes(t));
+  });
 
   if (matched) {
     if (lang === 'hi' || lang === 'hi-hinglish') {

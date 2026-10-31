@@ -1,14 +1,10 @@
+// server/models/Grievance.js
 const mongoose = require("mongoose");
 
 const grievanceSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: [true, "Title is required"],
-    },
-    description: {
-      type: String,
-    },
+    title: { type: String, required: [true, "Title is required"] },
+    description: { type: String },
     category: {
       type: String,
       enum: [
@@ -21,25 +17,14 @@ const grievanceSchema = new mongoose.Schema(
       ],
       required: [true, "Category is required"],
     },
-    severityScore: {
-      type: Number,
-      min: 1,
-      max: 10,
-      required: [true, "Severity score is required"],
-    },
+    severityScore: { type: Number, min: 1, max: 10, required: true },
     urgencyLevel: {
       type: String,
       enum: ["Low", "Medium", "High", "Critical"],
-      required: [true, "Urgency level is required"],
+      required: true,
     },
-    department: {
-      type: String,
-      required: [true, "Department is required"],
-    },
-    slaHours: {
-      type: Number,
-      required: [true, "SLA hours is required"],
-    },
+    department: { type: String, required: true },
+    slaHours: { type: Number, required: true },
     status: {
       type: String,
       enum: ["Pending", "Triaged", "In Progress", "Resolved"],
@@ -63,12 +48,8 @@ const grievanceSchema = new mongoose.Schema(
       wind_speed: { type: Number },
       fetchedAt: { type: Date },
     },
-    aiAnalysisSummary: {
-      type: String,
-    },
-    citizenExplainer: {
-      type: String,
-    },
+    aiAnalysisSummary: { type: String },
+    citizenExplainer: { type: String },
     authenticityCheck: {
       type: String,
       enum: ["Verified Consistent", "Needs Field Inspection"],
@@ -77,10 +58,7 @@ const grievanceSchema = new mongoose.Schema(
       type: String,
       enum: ["image", "pdf", "csv", "text", "voice"],
     },
-    preferredLanguage: {
-      type: String,
-      default: "English",
-    },
+    preferredLanguage: { type: String, default: "English" },
     projectScope: {
       type: String,
       enum: ["Localized Maintenance", "Macro Capital Infrastructure"],
@@ -90,35 +68,34 @@ const grievanceSchema = new mongoose.Schema(
       name: { type: String, default: "Anonymous Citizen" },
       email: { type: String, default: "" },
       role: { type: String, enum: ["Citizen", "Official"], default: "Citizen" },
-      authProvider: { type: String, enum: ["google", "official_credentials"], default: "google" },
+      authProvider: {
+        type: String,
+        enum: ["google", "official_credentials"],
+        default: "google",
+      },
     },
-    citizenImpactCount: {
-      type: Number,
-      default: 1,
-    },
-    isClustered: {
-      type: Boolean,
-      default: false,
-    },
-    audioUrl: {
-      type: String,
-      default: "",
-    },
-    redressalRemarks: {
-      type: String,
-      default: "",
-    },
-    resolvedBy: {
-      type: String,
-      default: "",
-    },
-    resolvedAt: {
-      type: Date,
-    },
+    // ── Community Hero Extensions ──
+    citizenImpactCount: { type: Number, default: 1 },
+    upvotes: { type: Number, default: 1 },
+    upvotedBy: [{ type: String }],
+    heroPointsAwarded: { type: Number, default: 50 },
+    imagePreview: { type: String, default: "" },
+    resolutionProofImage: { type: String, default: "" },
+    communityVolunteers: [
+      {
+        name: String,
+        email: String,
+        action: String,
+        joinedAt: { type: Date, default: Date.now },
+      },
+    ],
+    isClustered: { type: Boolean, default: false },
+    audioUrl: { type: String, default: "" },
+    redressalRemarks: { type: String, default: "" },
+    resolvedBy: { type: String, default: "" },
+    resolvedAt: { type: Date },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Grievance", grievanceSchema);

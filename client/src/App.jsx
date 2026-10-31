@@ -14,7 +14,7 @@ import {
   Upload, Mic, MicOff, RefreshCw, Send, AlertTriangle, CheckCircle,
   Clock, MapPin, Shield, ChevronDown, ChevronUp, X, LogIn, LogOut,
   FileText, Image, File, MessageSquare, BarChart3, Activity, Info,
-  Volume2, VolumeX
+  Volume2, VolumeX, Sparkles
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -23,6 +23,8 @@ import {
 import { auth, googleProvider, signInWithPopup, isFirebaseConfigured } from './firebase';
 import staticGovData from './data/staticGovData.json';
 import CivicMitraSidecar from './components/CivicMitraSidecar';
+import CommunityHeroTab2 from './components/CommunityHeroTab2';
+import { generateCivicResponse } from './services/civicAssistantEngine';
 import sampleGrievances from './data/sampleGrievances.json';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -725,6 +727,62 @@ export default function App() {
   const [dbFactChecks, setDbFactChecks] = useState([]);
   const [dbPortals, setDbPortals] = useState([]);
   const [dbFilterText, setDbFilterText] = useState('');
+  const [aiSchemeKeywords, setAiSchemeKeywords] = useState([]);
+  const [aiSchemeExplanation, setAiSchemeExplanation] = useState('');
+  const [aiSchemeSearching, setAiSchemeSearching] = useState(false);
+  const [aiSearchResults, setAiSearchResults] = useState(null);
+
+  const handleAiYojanaSearch = async (queryText) => {
+    const q = (queryText !== undefined ? queryText : dbFilterText).trim();
+    if (!q) {
+      setAiSchemeKeywords([]);
+      setAiSchemeExplanation('');
+      setAiSearchResults(null);
+      return;
+    }
+    setAiSchemeSearching(true);
+    try {
+      const res = await axios.post('/api/db/schemes/search', { query: q });
+      if (res.data && Array.isArray(res.data.schemes)) {
+        setAiSchemeKeywords(res.data.generatedKeywords || []);
+        setAiSchemeExplanation(res.data.aiExplanation || '');
+        setAiSearchResults(res.data.schemes);
+        addToast(`Gemini expanded "${q}" into ${res.data.generatedKeywords?.length || 0} keywords (${res.data.count} yojanas found)`, 'success');
+        return;
+      }
+      throw new Error('Fallback search');
+    } catch {
+      const qLower = q.toLowerCase();
+      const semDict = {
+        fertiliser: ['fertilizer', 'urea', 'pm-pranam', 'soil health', 'pm-kisan', 'agriculture', 'subsidy', 'dbt'],
+        fertilizer: ['fertilizer', 'urea', 'pm-pranam', 'soil health', 'pm-kisan', 'agriculture', 'subsidy', 'dbt'],
+        urea: ['fertilizer', 'urea', 'pm-pranam', 'subsidy', 'agriculture'],
+        farmer: ['pm-kisan', 'fasal bima', 'pmfby', 'agriculture', 'kcc'],
+        kisan: ['pm-kisan', 'pm-pranam', 'soil health', 'agriculture'],
+        loan: ['mudra', 'pmegp', 'vidyalaxmi', 'kcc', 'svanidhi'],
+        education: ['vidyalaxmi', 'nsp', 'scholarship', 'matric'],
+        vidyalaxmi: ['pm vidyalaxmi', 'education loan', 'nirf', 'interest subvention'],
+        health: ['ayushman', 'pmjay', 'arogya', 'insurance'],
+        housing: ['pm awas', 'pmay', 'housing'],
+        solar: ['pm surya ghar', 'solar roof', 'kusum', 'electricity']
+      };
+      let kws = [qLower];
+      for (const [k, v] of Object.entries(semDict)) {
+        if (qLower.includes(k)) kws.push(...v);
+      }
+      kws = [...new Set(kws)];
+      const matched = (staticGovData.schemes || []).filter(s => {
+        const t = `${s.scheme_name} ${s.benefits} ${s.eligibility} ${s.category} ${s.official_fact}`.toLowerCase();
+        return kws.some(kw => t.includes(kw));
+      });
+      setAiSchemeKeywords(kws);
+      setAiSchemeExplanation(`Semantic search expanded "${q}" into official government keywords: ${kws.slice(0, 5).join(', ')}.`);
+      setAiSearchResults(matched);
+      addToast(`Found ${matched.length} schemes for "${q}" via keyword expansion`, 'info');
+    } finally {
+      setAiSchemeSearching(false);
+    }
+  };
 
   const fetchDatabaseExplorer = async () => {
     setDbLoading(true);
@@ -1167,6 +1225,7 @@ export default function App() {
   };
   const fileInputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const baseVoiceTextRef = useRef('');
 
   const handleFileDrop = (e) => {
     e.preventDefault();
@@ -1186,29 +1245,19 @@ export default function App() {
       addToast('Voice input not supported in this browser', 'error');
       return;
     }
+    baseVoiceTextRef.current = textInput;
     const recognition = new SpeechRecognition();
     recognition.lang = LANG_MAP[preferredLanguage] || 'en-IN';
     recognition.interimResults = false;
     recognition.continuous = false;
 
     recognition.onresult = (e) => {
-      let finalTranscript = '';
-      for (let i = e.resultIndex; i < e.results.length; ++i) {
-        if (e.results[i].isFinal) {
-          finalTranscript += e.results[i][0].transcript;
-        }
+      let fullTranscript = '';
+      for (let i = 0; i < e.results.length; ++i) {
+        fullTranscript += e.results[i][0].transcript;
       }
-      if (!finalTranscript && e.results[0]?.[0]?.transcript) {
-        finalTranscript = e.results[0][0].transcript;
-      }
-      if (finalTranscript) {
-        setTextInput((prev) => {
-          const tPrev = prev.trim();
-          const tNew = finalTranscript.trim();
-          if (tPrev.endsWith(tNew)) return tPrev;
-          return tPrev ? `${tPrev} ${tNew}` : tNew;
-        });
-      }
+      const prefix = baseVoiceTextRef.current ? baseVoiceTextRef.current.trim() + ' ' : '';
+      setTextInput(prefix + fullTranscript.trim());
     };
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => {
@@ -1447,17 +1496,7 @@ export default function App() {
       }
       throw new Error('Fallback civic assistant reply');
     } catch (err) {
-      let reply = `I am your main-link Civic Assistant. You can explore our verified database of ${staticGovData.schemes?.length || 27} government schemes in the 'Decentralized Database' tab, or submit localized issues in the 'Report Civic Hazard' tab.`;
-      const lowerQ = q.toLowerCase();
-      if (lowerQ.includes('pothole') || lowerQ.includes('road')) {
-        reply = `To report road hazards or potholes, head to the 'Report Civic Hazard' tab. You can take a live photo or upload an image with GPS coordinates. Our system automatically clusters duplicate reports within 50m and assigns a strict 12-hour SLA.`;
-      } else if (lowerQ.includes('kisan') || lowerQ.includes('farmer')) {
-        reply = `PM-KISAN provides ₹6,000 per year in 3 equal installments of ₹2,000 via DBT. Eligibility requires land records and mandatory eKYC on pmkisan.gov.in.`;
-      } else if (lowerQ.includes('scholarship') || lowerQ.includes('student')) {
-        reply = `The National Scholarship Portal (NSP) offers Post-Matric and Central Sector scholarships. Application requires Aadhaar seeding and family income certificate below ₹2.5 Lakh/annum. Check the Database tab for direct apply links.`;
-      } else if (lowerQ.includes('water') || lowerQ.includes('leak')) {
-        reply = `Water main bursts and supply leakages can be submitted in the Report tab under the 'Water Supply' category. Standard SLA resolution target is 24 hours.`;
-      }
+      const reply = generateCivicResponse(q);
       setChatMessages((prev) => [...prev, { role: 'ai', content: reply }]);
     } finally {
       setChatLoading(false);
@@ -1836,175 +1875,39 @@ export default function App() {
 
         {/* ── Tab 2: Multimodal Civic Grievance & Hazard Reporting (Pillar 2) ── */}
         {currentMainTab === 'report' && (
-          <div className="space-y-6">
-            {/* ── D. Multimodal Submission ── */}
-        <section className="bg-cardBg border border-cardBorder rounded-xl p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              📤 Submit Civic Grievance / Policy Query
-            </h2>
-            <div className="text-xs text-gray-400">
-              Citizens (Google) ➔ Local Hazards • Officials ➔ Capital Infrastructure &amp; Redressal
-            </div>
-          </div>
-
-          {/* Submitter Authorization & Scope Ribbon */}
-          <div className="mb-4 p-3 bg-darkBg/80 border border-cardBorder rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              {isLoggedIn ? (
-                currentUser?.role === 'Official' ? (
-                  <div className="p-1.5 bg-saffron/20 text-saffron rounded-lg">
-                    <Shield size={20} />
-                  </div>
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-indiaGreen font-bold flex items-center justify-center border border-indiaGreen/40 text-sm">
-                    G
-                  </div>
-                )
-              ) : (
-                <div className="p-1.5 bg-gray-700/50 text-gray-400 rounded-lg">
-                  <Info size={20} />
-                </div>
-              )}
-              <div>
-                <div className="font-semibold text-white flex items-center gap-2">
-                  {isLoggedIn
-                    ? currentUser?.role === 'Official'
-                      ? `Authorized Official: ${currentUser.name} (${currentUser.role || 'GRO'})`
-                      : `Verified Google Account: ${currentUser.name} (Citizen)`
-                    : 'Unverified Submitter'}
-                  {isLoggedIn && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-normal bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
-                      {currentUser?.role === 'Official' ? 'GOVT AUTHORIZED' : 'GOOGLE AUTHORIZED'}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-gray-400 mt-0.5">
-                  {isLoggedIn && currentUser?.role === 'Official'
-                    ? 'Authorized for all maintenance hazards + macro capital proposals (New Flyovers, Expressways, Master Plans).'
-                    : 'Authorized to report localized hazards (potholes, water leaks, waste, streetlights). Major capital proposals (e.g. New Flyovers) require Government clearance.'}
-                </p>
-              </div>
-            </div>
-            {!isLoggedIn ? (
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthModalTab('citizen');
-                    setShowAuthModal(true);
-                  }}
-                  className="px-3 py-1.5 bg-indiaGreen hover:bg-green-700 text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition shadow"
-                >
-                  <span className="font-bold">G</span> Sign in with Google
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Left column: file + text */}
-            <div className="space-y-4">
-              {/* Drop zone */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleFileDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                  dragOver ? 'border-saffron bg-saffron/10' : 'border-cardBorder hover:border-gray-500'
-                }`}
-              >
-                <Upload size={32} className="mx-auto text-gray-400 mb-2" />
-                {selectedFile ? (
-                  <div className="flex items-center justify-center gap-2 text-sm text-white">
-                    <FileTypeIcon type={selectedFile.type || selectedFile.name} />
-                    <span>{selectedFile.name}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="text-red-400 hover:text-red-300">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-400">Drag &amp; drop a file or <span className="text-saffron underline">browse</span><br />(.png, .jpg, .jpeg, .pdf, .csv)</p>
-                )}
-                <input
-                  ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,.pdf,.csv"
-                  onChange={handleFileSelect} className="hidden"
-                />
-              </div>
-
-              {/* Text area + voice */}
-              <div className="relative">
-                <textarea
-                  value={textInput} onChange={(e) => setTextInput(e.target.value)}
-                  placeholder="Describe a civic issue, paste a policy question, or use voice input..."
-                  rows={4}
-                  className="w-full px-3 py-2 bg-darkBg border border-cardBorder rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-saffron resize-none"
-                />
-                <button
-                  onClick={isListening ? stopVoice : startVoice}
-                  className={`absolute bottom-3 right-3 p-2 rounded-full transition ${
-                    isListening ? 'bg-red-600 text-white animate-pulse' : 'bg-cardBorder text-gray-300 hover:bg-slate-600'
-                  }`}
-                  title={isListening ? 'Stop listening' : 'Start voice input'}
-                >
-                  {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                </button>
-              </div>
-              {isListening && <p className="text-sm text-red-400 animate-pulse flex items-center gap-1"><Mic size={14} /> Listening...</p>}
-            </div>
-
-            {/* Right column: options + submit */}
-            <div className="space-y-4">
-              {/* Language */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Language</label>
-                <select
-                  value={preferredLanguage} onChange={(e) => setPreferredLanguage(e.target.value)}
-                  className="w-full px-3 py-2 bg-darkBg border border-cardBorder rounded-lg text-white focus:outline-none focus:border-saffron"
-                >
-                  <option>English</option>
-                  <option>Hindi</option>
-                  <option>Telugu</option>
-                </select>
-              </div>
-
-              {/* GPS */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Location</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={detectLocation}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-navyBlue/30 text-blue-300 rounded-lg hover:bg-navyBlue/50 text-sm flex-shrink-0"
-                  >
-                    <MapPin size={14} /> Auto-Detect GPS
-                  </button>
-                  <input
-                    type="text" placeholder="Lat" value={manualLat} onChange={(e) => setManualLat(e.target.value)}
-                    className="flex-1 px-2 py-2 bg-darkBg border border-cardBorder rounded-lg text-white text-sm focus:outline-none focus:border-saffron"
-                  />
-                  <input
-                    type="text" placeholder="Lon" value={manualLon} onChange={(e) => setManualLon(e.target.value)}
-                    className="flex-1 px-2 py-2 bg-darkBg border border-cardBorder rounded-lg text-white text-sm focus:outline-none focus:border-saffron"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">📍 Current: {locationLabel}</p>
-              </div>
-
-              {/* Submit button */}
-              <button
-                onClick={handleSubmit} disabled={submitting}
-                className="w-full py-3 bg-indiaGreen hover:bg-green-700 text-white rounded-xl font-bold text-base transition disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
-              >
-                {submitting ? <RefreshCw size={18} className="animate-spin" /> : <span>🚀</span>}
-                {submitting ? 'Extracting & Triaging...' : 'Extract & Triage with AI'}
-              </button>
-            </div>
-          </div>
-        </section>
-          </div>
+          <CommunityHeroTab2
+            isLoggedIn={isLoggedIn}
+            currentUser={currentUser}
+            token={token}
+            setAuthModalTab={setAuthModalTab}
+            setShowAuthModal={setShowAuthModal}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            textInput={textInput}
+            setTextInput={setTextInput}
+            preferredLanguage={preferredLanguage}
+            setPreferredLanguage={setPreferredLanguage}
+            manualLat={manualLat}
+            setManualLat={setManualLat}
+            manualLon={manualLon}
+            setManualLon={setManualLon}
+            location={location}
+            locationLabel={locationLabel}
+            detectLocation={detectLocation}
+            submitting={submitting}
+            handleSubmit={handleSubmit}
+            isListening={isListening}
+            startVoice={startVoice}
+            stopVoice={stopVoice}
+            grievances={grievances}
+            fetchGrievances={fetchGrievances}
+            fetchAnalytics={fetchAnalytics}
+            speakText={speakText}
+            speakingId={speakingId}
+            addToast={addToast}
+          />
         )}
 
-        {/* ── Tab 3: Public Accountability, Telemetry & Triage Dashboard ── */}
         {currentMainTab === 'dashboard' && (
           <div className="space-y-6">
             {/* ── C. Telemetry Bar ── */}
@@ -2846,15 +2749,88 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Filter bar */}
-              <div className="mb-4">
-                <input
-                  type="text"
-                  value={dbFilterText}
-                  onChange={(e) => setDbFilterText(e.target.value)}
-                  placeholder={`Search ${dbActiveTab} in MongoDB Atlas...`}
-                  className="w-full px-3.5 py-2 bg-darkBg border border-cardBorder rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-saffron"
-                />
+              {/* Filter bar with Gemini AI Yojana Keyword Expansion */}
+              <div className="mb-4 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={dbFilterText}
+                    onChange={(e) => {
+                      setDbFilterText(e.target.value);
+                      if (!e.target.value.trim()) {
+                        setAiSearchResults(null);
+                        setAiSchemeKeywords([]);
+                        setAiSchemeExplanation('');
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAiYojanaSearch();
+                    }}
+                    placeholder={
+                      dbActiveTab === 'schemes'
+                        ? "Search yojanas (e.g. 'fertiliser', 'education loan', 'solar panel', 'kisan')..."
+                        : `Search ${dbActiveTab} in MongoDB Atlas...`
+                    }
+                    className="flex-1 px-3.5 py-2 bg-darkBg border border-cardBorder rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-saffron"
+                  />
+                  {dbActiveTab === 'schemes' && (
+                    <button
+                      type="button"
+                      onClick={() => handleAiYojanaSearch()}
+                      disabled={aiSchemeSearching || !dbFilterText.trim()}
+                      className="px-4 py-2 bg-gradient-to-r from-saffron to-amber-600 hover:from-orange-500 hover:to-amber-700 text-darkBg font-bold text-xs rounded-lg transition disabled:opacity-50 flex items-center gap-1.5 shadow"
+                      title="Call Gemini API to expand keywords and search database"
+                    >
+                      <Sparkles size={14} className={aiSchemeSearching ? 'animate-spin' : ''} />
+                      <span>{aiSchemeSearching ? 'Expanding...' : '✨ Gemini AI Search'}</span>
+                    </button>
+                  )}
+                  {(aiSearchResults || dbFilterText) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDbFilterText('');
+                        setAiSearchResults(null);
+                        setAiSchemeKeywords([]);
+                        setAiSchemeExplanation('');
+                      }}
+                      className="px-3 py-2 bg-cardBorder text-gray-300 hover:bg-slate-700 text-xs rounded-lg transition"
+                      title="Clear search"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Gemini Generated Keywords & Intent Ribbon */}
+                {dbActiveTab === 'schemes' && aiSchemeKeywords.length > 0 && (
+                  <div className="p-3 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950/40 border border-saffron/40 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-saffron flex items-center gap-1.5">
+                        <Sparkles size={13} />
+                        Gemini Semantic Keywords ({aiSchemeKeywords.length}):
+                      </span>
+                      <span className="text-[11px] text-emerald-400 font-mono">
+                        {aiSearchResults?.length ?? 0} matching schemes in MongoDB
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {aiSchemeKeywords.map((kw, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-saffron/15 text-orange-200 border border-saffron/30"
+                        >
+                          #{kw}
+                        </span>
+                      ))}
+                    </div>
+                    {aiSchemeExplanation && (
+                      <p className="text-[11px] text-gray-300 italic">
+                        🤖 <strong>Gemini Analysis:</strong> {aiSchemeExplanation}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Collection Data Render */}
@@ -2862,8 +2838,13 @@ export default function App() {
                 {/* 1. Schemes */}
                 {dbActiveTab === 'schemes' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {dbSchemes
-                      .filter((s) => !dbFilterText || s.scheme_name?.toLowerCase().includes(dbFilterText.toLowerCase()) || s.ministry?.toLowerCase().includes(dbFilterText.toLowerCase()))
+                    {(aiSearchResults || dbSchemes)
+                      .filter((s) => {
+                        if (aiSearchResults) return true;
+                        if (!dbFilterText) return true;
+                        const t = `${s.scheme_name} ${s.ministry} ${s.category} ${s.benefits} ${s.official_fact}`.toLowerCase();
+                        return t.includes(dbFilterText.toLowerCase());
+                      })
                       .map((s, idx) => (
                         <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-2">
                           <div className="flex items-start justify-between gap-2">

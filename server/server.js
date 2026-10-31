@@ -533,7 +533,15 @@ app.post("/api/grievances/extract", upload.single("file"), async (req, res) => {
       }
     }
 
+    let imagePreview = "";
+    if (file && file.mimetype && file.mimetype.startsWith("image/")) {
+      imagePreview = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+    }
+
     const grievance = new Grievance({
+      imagePreview,
+      heroPointsAwarded: 50,
+      upvotes: 1,
       title: aiResult.title,
       description: text || `Uploaded ${sourceFileType} grievance report`,
       category: aiResult.category,
@@ -618,6 +626,152 @@ app.patch("/api/grievances/:id/status", auth, async (req, res) => {
     return res.status(500).json({ error: "Failed to update status." });
   }
 });
+
+// ---------------------------------------------------------------------------
+// COMMUNITY HERO ROUTES (Upvote, Volunteer, Verify Resolution, Leaderboard)
+// ---------------------------------------------------------------------------
+
+// 1. POST /api/grievances/:id/upvote — Citizen confirms/upvotes a hazard
+app.post("/api/grievances/:id/upvote", async (req, res) => {
+  try {
+    const { userEmail = "anonymous@citizen.in", userName = "Community Hero" } = req.body;
+    const grievance = await Grievance.findById(req.params.id);
+    if (!grievance) {
+      return res.status(404).json({ error: "Hazard report not found." });
+    }
+
+    if (!Array.isArray(grievance.upvotedBy)) grievance.upvotedBy = [];
+    if (grievance.upvotedBy.includes(userEmail)) {
+      return res.status(400).json({ error: "You have already confirmed this hazard." });
+    }
+
+    grievance.upvotedBy.push(userEmail);
+    grievance.upvotes = (grievance.upvotes || 1) + 1;
+    grievance.citizenImpactCount = (grievance.citizenImpactCount || 1) + 1;
+
+    // Auto-escalate urgency if 5+ citizens confirm the same hazard
+    if (grievance.upvotes >= 5 && grievance.urgencyLevel !== "Critical") {
+      grievance.urgencyLevel = "Critical";
+      grievance.severityScore = Math.min(10, (grievance.severityScore || 5) + 2);
+    }
+
+    await grievance.save();
+    return res.json({
+      grievance,
+      xpEarned: 15,
+      message: `Hazard confirmed by ${userName}! +15 Hero XP awarded.`,
+    });
+  } catch (err) {
+    console.error("[Community Hero Upvote]", err.message);
+    return res.status(500).json({ error: "Failed to upvote hazard." });
+  }
+});
+
+// 2. POST /api/grievances/:id/volunteer — Citizen pledges to assist or monitor
+app.post("/api/grievances/:id/volunteer", async (req, res) => {
+  try {
+    const { name = "Community Volunteer", email = "", action = "Field Verification & Cleanup" } = req.body;
+    const grievance = await Grievance.findById(req.params.id);
+    if (!grievance) {
+      return res.status(404).json({ error: "Hazard report not found." });
+    }
+
+    if (!Array.isArray(grievance.communityVolunteers)) {
+      grievance.communityVolunteers = [];
+    }
+    grievance.communityVolunteers.push({ name, email, action, joinedAt: new Date() });
+    await grievance.save();
+
+    return res.json({
+      grievance,
+      xpEarned: 30,
+      message: `${name} joined as a Community Hero responder! +30 Hero XP awarded.`,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to register volunteer." });
+  }
+});
+
+// 3. POST /api/grievances/:id/verify-resolution — Upload "After" photo proof
+app.post("/api/grievances/:id/verify-resolution", upload.single("file"), async (req, res) => {
+  try {
+    const { remarks = "Verified resolved by Community Hero with photo proof.", resolvedBy = "Community Hero" } = req.body;
+    const grievance = await Grievance.findById(req.params.id);
+    if (!grievance) {
+      return res.status(404).json({ error: "Hazard report not found." });
+    }
+
+    if (req.file) {
+      const b64 = req.file.buffer.toString("base64");
+      grievance.resolutionProofImage = `data:${req.file.mimetype};base64,${b64}`;
+    }
+
+    grievance.status = "Resolved";
+    grievance.redressalRemarks = remarks;
+    grievance.resolvedBy = resolvedBy;
+    grievance.resolvedAt = new Date();
+    await grievance.save();
+
+    return res.json({
+      grievance,
+      xpEarned: 100,
+      message: `Resolution verified with proof by ${resolvedBy}! +100 Hero XP awarded.`,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to verify resolution." });
+  }
+});
+
+// 4. GET /api/community-hero/leaderboard — Aggregates top civic reporters & volunteers
+app.get("/api/community-hero/leaderboard", async (_req, res) => {
+  try {
+    const grievances = await Grievance.find().lean();
+    const heroMap = {};
+
+    const addPoints = (name, email, pts, reports = 0, resolved = 0, badge = "Civic Scout") => {
+      const key = (email || name || "anonymous").toLowerCase();
+      if (!heroMap[key]) {
+        heroMap[key] = {
+          name: name || "Anonymous Citizen",
+          email: email || "",
+          xp: 0,
+          reportsFiled: 0,
+          issuesResolved: 0,
+          badge,
+        };
+      }
+      heroMap[key].xp += pts;
+      heroMap[key].reportsFiled += reports;
+      heroMap[key].issuesResolved += resolved;
+      if (heroMap[key].xp >= 500) heroMap[key].badge = "🏆 Ward Guardian";
+      else if (heroMap[key].xp >= 250) heroMap[key].badge = "⚡ Infrastructure Sentinel";
+      else if (heroMap[key].xp >= 100) heroMap[key].badge = "🛡️ Active Responder";
+      else heroMap[key].badge = "🌱 Civic Scout";
+    };
+
+    for (const g of grievances) {
+      const subName = g.submittedBy?.name || "Verified Citizen";
+      const subEmail = g.submittedBy?.email || subName;
+      const isRes = g.status === "Resolved" ? 1 : 0;
+      addPoints(subName, subEmail, (g.heroPointsAwarded || 50) + (g.upvotes || 1) * 10, 1, isRes);
+
+      if (Array.isArray(g.communityVolunteers)) {
+        for (const v of g.communityVolunteers) {
+          addPoints(v.name, v.email || v.name, 30, 0, isRes);
+        }
+      }
+    }
+
+    const leaderboard = Object.values(heroMap)
+      .sort((a, b) => b.xp - a.xp)
+      .slice(0, 10);
+
+    return res.json({ leaderboard });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to build Community Hero leaderboard." });
+  }
+});
+
 
 // ---- GET live telemetry --------------------------------------------------
 app.get("/api/telemetry/live", async (req, res) => {
@@ -847,6 +1001,30 @@ app.get("/api/db/stats", async (_req, res) => {
     return res.json(stats);
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ---- POST /api/db/schemes/search (Gemini AI Keyword Yojana Search) ---------
+app.post("/api/db/schemes/search", async (req, res) => {
+  try {
+    const userQuery = req.body.query || req.body.q || "";
+    const result = await aiAgent.searchYojanasWithGeminiKeywords({ userQuery });
+    return res.json(result);
+  } catch (err) {
+    console.error("[Yojana Search] Error:", err.message);
+    return res.status(500).json({ error: "Failed to perform semantic yojana search." });
+  }
+});
+
+app.get("/api/db/schemes/search", async (req, res) => {
+  try {
+    const userQuery = req.query.q || req.query.query || "";
+    const result = await aiAgent.searchYojanasWithGeminiKeywords({ userQuery });
+    return res.json(result);
+  } catch (err) {
+    console.error("[Yojana Search] Error:", err.message);
+    return res.status(500).json({ error: "Failed to perform semantic yojana search." });
   }
 });
 

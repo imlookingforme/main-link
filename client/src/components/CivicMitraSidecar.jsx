@@ -28,6 +28,7 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
   const [selectedLang, setSelectedLang] = useState('Hindi');
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
+  const baseInputRef = useRef('');
 
   useEffect(() => {
     if (isOpen) {
@@ -89,24 +90,19 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
       return;
     }
 
+    baseInputRef.current = input;
     const recognition = new SpeechRecognition();
     recognition.lang = selectedLang === 'Hindi' ? 'hi-IN' : 'en-IN';
     recognition.interimResults = false;
     recognition.continuous = false;
 
     recognition.onresult = (e) => {
-      let finalTranscript = '';
-      for (let i = e.resultIndex; i < e.results.length; ++i) {
-        if (e.results[i].isFinal) {
-          finalTranscript += e.results[i][0].transcript;
-        }
+      let fullTranscript = '';
+      for (let i = 0; i < e.results.length; ++i) {
+        fullTranscript += e.results[i][0].transcript;
       }
-      if (!finalTranscript && e.results[0]?.[0]?.transcript) {
-        finalTranscript = e.results[0][0].transcript;
-      }
-      if (finalTranscript) {
-        setInput((prev) => (prev ? prev + ' ' : '') + finalTranscript.trim());
-      }
+      const prefix = baseInputRef.current ? baseInputRef.current.trim() + ' ' : '';
+      setInput(prefix + fullTranscript.trim());
     };
 
     recognition.onend = () => setIsListening(false);
