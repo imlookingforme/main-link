@@ -266,3 +266,60 @@ async def one_click_apply_agent_ws(websocket: WebSocket, scheme_id: str):
             await websocket.close()
         except Exception:
             pass
+
+
+# ── Decentralized MongoDB Cross-Access Endpoints ──
+@router.get("/db/stats")
+async def get_database_stats():
+    """Returns cross-service MongoDB Atlas collection statistics."""
+    from app.services.db_manager import shared_db
+    return shared_db.get_stats()
+
+@router.get("/db/grievances")
+async def get_decentralized_grievances(limit: int = 50):
+    """Allows detection pipeline and forensic engine to query civic grievances from MongoDB."""
+    from app.services.db_manager import shared_db
+    records = shared_db.get_grievances(limit=limit)
+    return {"count": len(records), "grievances": records}
+
+@router.get("/db/schemes")
+async def get_decentralized_schemes():
+    """Returns all scraped official schemes directly from MongoDB Atlas."""
+    from app.services.db_manager import shared_db
+    records = shared_db.get_schemes()
+    return {"count": len(records), "schemes": records}
+
+@router.get("/db/fact-checks")
+async def get_decentralized_fact_checks():
+    """Returns all government fact-checks directly from MongoDB Atlas."""
+    from app.services.db_manager import shared_db
+    records = shared_db.get_fact_checks()
+    return {"count": len(records), "fact_checks": records}
+
+@router.get("/db/portals")
+async def get_decentralized_portals():
+    """Returns whitelisted official portals directly from MongoDB Atlas."""
+    from app.services.db_manager import shared_db
+    records = shared_db.get_portals()
+    return {"count": len(records), "portals": records}
+
+@router.get("/db/notifications")
+async def get_decentralized_notifications():
+    """Returns official ministry gazettes and notifications from MongoDB."""
+    from app.services.db_manager import shared_db
+    records = shared_db.get_notifications()
+    return {"count": len(records), "notifications": records}
+
+@router.get("/db/municipal-laws")
+async def get_decentralized_municipal_laws():
+    """Returns municipal bylaws, acts, and SLA charters from MongoDB."""
+    from app.services.db_manager import shared_db
+    records = shared_db.get_municipal_laws()
+    return {"count": len(records), "municipal_laws": records}
+
+@router.get("/db/agent-services")
+async def get_decentralized_agent_services():
+    """Returns autonomous browser execution agent service catalog from MongoDB."""
+    from app.services.db_manager import shared_db
+    records = shared_db.get_agent_services()
+    return {"count": len(records), "agent_services": records}

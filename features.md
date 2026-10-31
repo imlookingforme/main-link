@@ -154,6 +154,25 @@ A high-throughput verification platform that ingests viral social media claims, 
 | 12 | **Pillar 4** | DeBERTa-v3 FEVER NLI & Forensic ViT | `detection-pipeline/app/services/multimodal_engine.py` | ✅ Verified |
 | 13 | **Pillar 4** | Fee Extortion & Domain Phishing Guard | `detection-pipeline/app/services/multimodal_engine.py` | ✅ Verified |
 | 14 | **Cross** | Unified Portal Navigation (5173 <-> 8000) | `client/src/App.jsx` & `index.html` | ✅ Verified |
+| 15 | **Cross** | Segmented 6-Tab Responsive UI | `client/src/App.jsx` | ✅ Verified (Explainer, Report, Triage, Fact-Check, Chat, Database) |
+| 16 | **Database** | Decentralized MongoDB Cross-Service Layer | `server/services/dbManager.js` & `detection-pipeline/app/services/db_manager.py` | ✅ Verified (Atlas `mainlink_db`) |
+| 17 | **Database** | Massive Government Database Seeder | `detection-pipeline/scripts/seed_massive_gov_database.py` | ✅ Verified (6 Collections, 60+ Records) |
+
+---
+
+## 🗄️ Decentralized Multi-Collection Database Architecture
+
+Both Node.js (`server/`) and Python FastAPI (`detection-pipeline/`) share direct, decentralized read/write access to the MongoDB Atlas cluster (`mainlink_db`):
+
+| Collection | Records | Purpose & Schema Highlights |
+|---|---|---|
+| `official_schemes` | 27 | Welfare schemes across Education, Agriculture, MSME, Healthcare, Housing, Transport with eligibility, benefits, and statutory portals. |
+| `government_notifications` | 4 | Real-time gazette notifications, Aadhaar DBT circulars, Zero-Fee orders, RBI digital lending guidelines. |
+| `municipal_laws` | 4 | Solid Waste Management Rules 2016, Street Vendors Act 2014, Citizens SLA Charter with compensatory officer penalty, GRAP Air Pollution rules. |
+| `bureaucracy_agent_services` | 4 | Multi-stage execution flows for automated web agents (NSP Scholarships, Sarathi Parivahan DL, PM-KISAN eKYC, Udyam MSME). |
+| `government_fact_checks` | 9 | PIB Fact Check debunks of viral scams, bogus subsidy claims, and deepfake circulars. |
+| `official_portals` | 16 | Verified whitelist of legitimate `.gov.in` and `.nic.in` portal domains preventing phishing and fee extortion. |
+| `grievances` | Dynamic | Geospatially indexed civic reports with photo, audio, Open-Meteo telemetry, and GRO ATR lifecycle states. |
 
 ---
 

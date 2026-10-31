@@ -15,6 +15,14 @@ from dotenv import load_dotenv
 _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_ENV_PATH)
 
+import base64
+_raw_key = os.getenv("GEMINI_API_KEY") or os.getenv("AI_API_KEY") or ""
+if _raw_key.startswith("base64:"):
+    try:
+        os.environ["GEMINI_API_KEY"] = base64.b64decode(_raw_key[7:]).decode("utf-8")
+    except Exception:
+        pass
+
 
 class Settings(BaseSettings):
     """Application settings — sourced from environment / .env."""
