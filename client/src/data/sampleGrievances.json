@@ -1,0 +1,114 @@
+[
+  {
+    "_id": "grv_mock_001",
+    "trackingId": "CIVIC-2026-HYD-4821",
+    "title": "Severe Water Main Rupture flooding arterial junction",
+    "description": "300mm drinking water supply line burst near Mehdipatnam Rythu Bazar. Severe waterlogging impacting 3 bus routes and flooding ground floor commercial shops.",
+    "category": "Water Supply",
+    "urgency": "High",
+    "status": "In Progress",
+    "department": "HMWSSB (Hyderabad Water Supply & Sewerage)",
+    "location": {
+      "address": "Mehdipatnam Main Road, Hyderabad, Telangana",
+      "lat": 17.3916,
+      "lon": 78.4398
+    },
+    "spatialCluster": {
+      "clusterCount": 3,
+      "radiusMeters": 50,
+      "isClusterLeader": true
+    },
+    "slaHours": 24,
+    "createdAt": "2026-10-31T05:30:00.000Z",
+    "submittedBy": {
+      "name": "Raghuram (Citizen)",
+      "email": "raghuram@gmail.com",
+      "authProvider": "google"
+    },
+    "authenticityCheck": "Verified Ground Report"
+  },
+  {
+    "_id": "grv_mock_002",
+    "trackingId": "CIVIC-2026-HYD-4822",
+    "title": "Dangerous Deep Pothole cluster near School Entrance",
+    "description": "Multiple crater-like potholes (approx 1.2m wide, 15cm deep) directly at the entrance of Zilla Parishad High School causing two-wheeler skids during morning drop hours.",
+    "category": "Roads & Footpaths",
+    "urgency": "Critical",
+    "status": "Triaged",
+    "department": "GHMC Engineering & Maintenance",
+    "location": {
+      "address": "Road No. 12, Banjara Hills, Hyderabad, Telangana",
+      "lat": 17.4156,
+      "lon": 78.4352
+    },
+    "spatialCluster": {
+      "clusterCount": 5,
+      "radiusMeters": 45,
+      "isClusterLeader": true
+    },
+    "slaHours": 12,
+    "createdAt": "2026-10-31T06:15:00.000Z",
+    "submittedBy": {
+      "name": "Priya Sharma (Resident)",
+      "email": "citizen.hyd@gmail.com",
+      "authProvider": "google"
+    },
+    "authenticityCheck": "Verified Ground Report"
+  },
+  {
+    "_id": "grv_mock_003",
+    "trackingId": "CIVIC-2026-HYD-4823",
+    "title": "Illegal Construction Debris blocking stormwater drain",
+    "description": "Around 8 metric tons of demolished concrete and masonry dumped in public stormwater canal ahead of forecasted rains.",
+    "category": "Sanitation & Waste",
+    "urgency": "Medium",
+    "status": "Pending",
+    "department": "GHMC Sanitation Division",
+    "location": {
+      "address": "Kukatpally Housing Board Colony, Hyderabad",
+      "lat": 17.4938,
+      "lon": 78.3995
+    },
+    "spatialCluster": {
+      "clusterCount": 1,
+      "radiusMeters": 50,
+      "isClusterLeader": false
+    },
+    "slaHours": 48,
+    "createdAt": "2026-10-31T07:00:00.000Z",
+    "submittedBy": {
+      "name": "Kavita Rao",
+      "email": "kavita.rao@gmail.com",
+      "authProvider": "google"
+    },
+    "authenticityCheck": "Verified Ground Report"
+  },
+  {
+    "_id": "grv_mock_004",
+    "trackingId": "CIVIC-2026-HYD-4824",
+    "title": "Exposed High-Voltage Cable on Pedestrian Footpath",
+    "description": "Underground transformer trench left uncovered with live insulated 440V cables exposed to foot traffic outside metro station.",
+    "category": "Electricity & Lighting",
+    "urgency": "Critical",
+    "status": "Resolved",
+    "department": "TSSPDCL Electrical Safety",
+    "location": {
+      "address": "Ameerpet Metro Station Junction, Hyderabad",
+      "lat": 17.4375,
+      "lon": 78.4482
+    },
+    "spatialCluster": {
+      "clusterCount": 2,
+      "radiusMeters": 30,
+      "isClusterLeader": true
+    },
+    "slaHours": 6,
+    "createdAt": "2026-10-31T02:00:00.000Z",
+    "submittedBy": {
+      "name": "Venkatesh Iyer",
+      "email": "venkat.iyer@gmail.com",
+      "authProvider": "google"
+    },
+    "authenticityCheck": "Verified Ground Report"
+  }
+]
