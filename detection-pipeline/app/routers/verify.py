@@ -268,6 +268,26 @@ async def one_click_apply_agent_ws(websocket: WebSocket, scheme_id: str):
             pass
 
 
+@router.post("/playwright/apply")
+async def execute_playwright_rest(
+    scheme_id: str = "NSP-POST-MATRIC-2026",
+    citizen_vault: Optional[dict] = None
+):
+    """REST endpoint to trigger Playwright application execution."""
+    agent = get_playwright_agent()
+    result = await agent.execute_application(
+        scheme_id=scheme_id,
+        citizen_vault=citizen_vault
+    )
+    return {
+        "status": "COMPLETED",
+        "scheme_id": scheme_id,
+        "reference_id": result.get("reference_id"),
+        "receipt_url": result.get("receipt_url"),
+        "result": result
+    }
+
+
 # ── Decentralized MongoDB Cross-Access Endpoints ──
 @router.get("/db/stats")
 async def get_database_stats():
