@@ -10,6 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
+import { auth, googleProvider, signInWithPopup, isFirebaseConfigured } from './firebase';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -71,17 +72,47 @@ function AuthModal({ onClose, onLogin, initialTab = 'citizen' }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Handle Google Citizen Login
+  // Handle Google Citizen Login (Firebase Popup with Seamless Fallback)
   const handleGoogleLogin = async (emailToUse, nameToUse) => {
     setLoading(true);
     setError('');
     try {
-      const email = emailToUse || googleEmail;
-      const name = nameToUse || citizenName || email.split('@')[0];
+      let email = emailToUse;
+      let name = nameToUse;
+      let googleId = `goog_${Date.now()}`;
+      let picture = '';
+
+      // If no preset email provided and Firebase is configured, open genuine Google Auth Popup
+      if (!emailToUse && isFirebaseConfigured && auth && googleProvider) {
+        try {
+          const result = await signInWithPopup(auth, googleProvider);
+          const fbUser = result.user;
+          email = fbUser.email;
+          name = fbUser.displayName || fbUser.email?.split('@')[0];
+          googleId = fbUser.uid;
+          picture = fbUser.photoURL || '';
+        } catch (fbErr) {
+          if (fbErr.code === 'auth/popup-closed-by-user') {
+            setLoading(false);
+            return;
+          }
+          console.warn('[Firebase Auth] Popup error, using form input:', fbErr.message);
+          if (!googleEmail) {
+            setError(`Firebase Sign-In: ${fbErr.message || 'Cancelled'}`);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      email = email || googleEmail;
+      name = name || citizenName || (email ? email.split('@')[0] : 'Citizen');
+
       const res = await axios.post('/api/auth/google-citizen', {
         email,
         name,
-        googleId: `goog_${Date.now()}`,
+        googleId,
+        picture,
       });
       onLogin(res.data.token, res.data.user);
     } catch (err) {
