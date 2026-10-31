@@ -3,14 +3,21 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 
 import {
-
   Upload, Camera, Mic, MicOff, RefreshCw, MapPin, Shield, Info, X,
-
   CheckCircle, AlertTriangle, Flame, Award, ThumbsUp, Users, Sparkles,
-
-  Volume2, Navigation, Eye, CheckSquare
-
+  Volume2, Navigation, Eye, CheckSquare, Activity, Wind, Droplets,
+  Search, ChevronDown, ChevronUp, HeartPulse, Compass
 } from 'lucide-react';
+import {
+  calculateEcoQI,
+  getGrade,
+  getGradeBadgeStyle,
+  getWindDirectionCompass,
+  evaluateHealthAdvice,
+  predictTomorrowAQI,
+  getEnvironmentalCorrelation
+} from '../services/ecoScoreEngine';
+import indianCitiesAqi from '../data/indianCitiesAqi.json';
 
 import axios from 'axios';
 
@@ -185,14 +192,55 @@ export default function CommunityHeroTab2({
   speakText,
 
   speakingId,
-
   addToast,
-
+  telemetry,
+  telemetryLoading,
+  fetchTelemetry,
+  setLocation,
+  setLocationLabel,
 }) {
 
   const [dragOver, setDragOver] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
+  const [selectedCityName, setSelectedCityName] = useState('Hyderabad');
+  const [showAdvisories, setShowAdvisories] = useState(false);
+  const [advisoryTab, setAdvisoryTab] = useState('health'); // 'health' | 'forecast'
+
+  const filteredCities = useMemo(() => {
+    if (!citySearch.trim()) return indianCitiesAqi.slice(0, 50);
+    const q = citySearch.toLowerCase();
+    return indianCitiesAqi.filter(c => c.name.toLowerCase().includes(q) || c.state.toLowerCase().includes(q)).slice(0, 50);
+  }, [citySearch]);
+
+  const handleCitySelect = (cityName) => {
+    const found = indianCitiesAqi.find(c => c.name === cityName);
+    if (found) {
+      setSelectedCityName(found.name);
+      if (setLocation) setLocation({ lat: found.lat, lon: found.lon });
+      if (setLocationLabel) setLocationLabel(`${found.name}, ${found.state}`);
+      if (setManualLat) setManualLat(found.lat);
+      if (setManualLon) setManualLon(found.lon);
+      if (fetchTelemetry) setTimeout(() => fetchTelemetry(), 50);
+      if (addToast) addToast(`Switched telemetry to ${found.name} (CPCB AQI: ${found.latest_aqi})`, 'info');
+    }
+  };
+
+  const handleUseLiveGps = () => {
+    if (detectLocation) detectLocation();
+    if (fetchTelemetry) setTimeout(() => fetchTelemetry(), 200);
+    if (addToast) addToast('Synchronizing with local GPS coordinates...', 'info');
+  };
 
   const [selectedPreset, setSelectedPreset] = useState(null);
+
+  const aqiVal = telemetry?.europeanAqi ?? 48;
+  const pm25Val = telemetry?.pm25 ?? 38.0;
+  const ecoqiVal = telemetry?.ecoqi ?? calculateEcoQI(aqiVal);
+  const ecoGrade = telemetry?.grade ?? getGrade(ecoqiVal);
+  const gradeBadgeStyle = getGradeBadgeStyle(ecoGrade);
+  const healthAdvice = useMemo(() => evaluateHealthAdvice(aqiVal || pm25Val), [aqiVal, pm25Val]);
+  const predictiveForecast = useMemo(() => predictTomorrowAQI(aqiVal || pm25Val, telemetry?.windSpeed || 12), [aqiVal, pm25Val, telemetry?.windSpeed]);
+  const envCorrelation = useMemo(() => getEnvironmentalCorrelation(selectedPreset?.category || 'Roads & Bridges', telemetry), [selectedPreset, telemetry]);
 
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
 
@@ -721,6 +769,276 @@ export default function CommunityHeroTab2({
       </section>
 
 
+
+      {/* ── 1.5. LIVEMETEOROLOGICAL & ECO-SCORE INDIA AIR QUALITY HUB (CS50x Final Project) ── */}
+      <section className="bg-cardBg border border-cardBorder rounded-xl p-5 space-y-4 shadow-lg">
+        {/* Hub Header & City Selector */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-cardBorder">
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Activity size={18} className="text-saffron" />
+                Live Environmental Telemetry &amp; EcoScore India
+              </h2>
+              <p className="text-xs text-gray-400">
+                CPCB 298-City Monitoring Network &bull; Real-time particulate dispersion &amp; civic hazard correlation
+              </p>
+            </div>
+          </div>
+
+          {/* City Selector, Live GPS & Refresh Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <select
+                value={selectedCityName}
+                onChange={(e) => handleCitySelect(e.target.value)}
+                className="bg-darkBg border border-cardBorder text-gray-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-saffron cursor-pointer"
+              >
+                <optgroup label="Major Monitoring Hubs">
+                  <option value="Hyderabad">Hyderabad (Telangana)</option>
+                  <option value="Delhi">Delhi (NCR)</option>
+                  <option value="Mumbai">Mumbai (Maharashtra)</option>
+                  <option value="Bengaluru">Bengaluru (Karnataka)</option>
+                  <option value="Chennai">Chennai (Tamil Nadu)</option>
+                  <option value="Kolkata">Kolkata (West Bengal)</option>
+                  <option value="Pune">Pune (Maharashtra)</option>
+                  <option value="Ahmedabad">Ahmedabad (Gujarat)</option>
+                </optgroup>
+                <optgroup label="All 298 CPCB Monitored Cities">
+                  {filteredCities.map((c) => (
+                    <option key={c.id || c.name} value={c.name}>
+                      {c.name} &bull; AQI {c.latest_aqi} ({c.grade})
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleUseLiveGps}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-darkBg border border-cardBorder hover:border-gray-500 text-xs text-gray-300 rounded-lg transition-colors"
+              title="Detect device GPS coordinates"
+            >
+              <Navigation size={12} className="text-cyan-400" />
+              <span>Use GPS</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={fetchTelemetry}
+              disabled={telemetryLoading}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-saffron/20 border border-saffron/40 hover:bg-saffron/30 text-xs text-saffron rounded-lg transition-colors disabled:opacity-50"
+              title="Refresh environmental sensors"
+            >
+              <RefreshCw size={12} className={telemetryLoading ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 7 Core Telemetry Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
+          {/* 1. Temperature */}
+          <div className="bg-darkBg/90 border border-cardBorder rounded-lg p-3 text-center flex flex-col justify-between">
+            <div className="text-xl mb-0.5">🌡️</div>
+            <div className="text-[11px] text-gray-400">Temperature</div>
+            <div className="text-sm font-bold text-white mt-1">
+              {telemetry?.temperature != null ? `${telemetry.temperature}°C` : '28.5°C'}
+            </div>
+          </div>
+
+          {/* 2. Precipitation */}
+          <div className="bg-darkBg/90 border border-cardBorder rounded-lg p-3 text-center flex flex-col justify-between">
+            <div className="text-xl mb-0.5">💧</div>
+            <div className="text-[11px] text-gray-400">Precipitation</div>
+            <div className="text-sm font-bold text-white mt-1">
+              {telemetry?.precipitation != null ? `${telemetry.precipitation} mm` : '0.0 mm'}
+            </div>
+          </div>
+
+          {/* 3. Wind Speed & Compass */}
+          <div className="bg-darkBg/90 border border-cardBorder rounded-lg p-3 text-center flex flex-col justify-between">
+            <div className="text-xl mb-0.5">💨</div>
+            <div className="text-[11px] text-gray-400">Wind &amp; Compass</div>
+            <div className="text-sm font-bold text-white mt-1">
+              {telemetry?.windSpeed != null ? `${telemetry.windSpeed} km/h` : '12.4 km/h'}{' '}
+              <span className="text-xs font-mono text-cyan-400">{telemetry?.windCompass || 'ENE'}</span>
+            </div>
+          </div>
+
+          {/* 4. PM2.5 */}
+          <div className="bg-darkBg/90 border border-cardBorder rounded-lg p-3 text-center flex flex-col justify-between">
+            <div className="text-xl mb-0.5">🫁</div>
+            <div className="text-[11px] text-gray-400">PM2.5 Sensor</div>
+            <div className="text-sm font-bold text-amber-300 mt-1">
+              {telemetry?.pm25 != null ? `${telemetry.pm25} μg/m³` : '38.0 μg/m³'}
+            </div>
+          </div>
+
+          {/* 5. PM10 */}
+          <div className="bg-darkBg/90 border border-cardBorder rounded-lg p-3 text-center flex flex-col justify-between">
+            <div className="text-xl mb-0.5">🏭</div>
+            <div className="text-[11px] text-gray-400">PM10 Sensor</div>
+            <div className="text-sm font-bold text-gray-200 mt-1">
+              {telemetry?.pm10 != null ? `${telemetry.pm10} μg/m³` : '72.0 μg/m³'}
+            </div>
+          </div>
+
+          {/* 6. EcoScore (EcoQI 0-100) */}
+          <div className="bg-darkBg/90 border border-cardBorder rounded-lg p-3 text-center flex flex-col justify-between relative overflow-hidden">
+            <div className="text-xl mb-0.5">🌿</div>
+            <div className="text-[11px] text-emerald-400 font-medium">EcoScore India</div>
+            <div className="flex items-center justify-center gap-1.5 mt-1">
+              <span className="text-sm font-bold text-emerald-300">{ecoqiVal}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold border ${gradeBadgeStyle}`}>
+                {ecoGrade}
+              </span>
+            </div>
+          </div>
+
+          {/* 7. European / CPCB AQI */}
+          <div className="bg-darkBg/90 border border-cardBorder rounded-lg p-3 text-center flex flex-col justify-between">
+            <div className="text-xl mb-0.5">🌍</div>
+            <div className="text-[11px] text-gray-400">CPCB Air AQI</div>
+            <div className="text-sm font-bold text-cyan-300 mt-1">
+              {aqiVal} <span className="text-[10px] text-gray-400 font-normal">({aqiVal <= 50 ? 'Good' : aqiVal <= 100 ? 'Moderate' : 'Poor'})</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Predictive AI Forecast & Health Advisory Toggle */}
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={() => setShowAdvisories(!showAdvisories)}
+            className="w-full py-2 px-3 bg-darkBg/60 hover:bg-darkBg border border-cardBorder rounded-lg flex items-center justify-between text-xs text-gray-300 transition-colors"
+          >
+            <span className="flex items-center gap-2 font-medium">
+              <HeartPulse size={14} className="text-red-400" />
+              <span>EcoScore AI Predictive Forecast &amp; CPCB Health Advisories</span>
+              <span className="px-1.5 py-0.2 bg-emerald-950 text-emerald-300 border border-emerald-600/40 rounded text-[10px] font-mono">
+                Trend: {predictiveForecast.trend.toUpperCase()}
+              </span>
+            </span>
+            <div className="flex items-center gap-1 text-gray-400">
+              <span className="text-[11px]">{showAdvisories ? 'Collapse' : 'Expand Details'}</span>
+              {showAdvisories ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </div>
+          </button>
+
+          {/* Expandable Panel */}
+          {showAdvisories && (
+            <div className="mt-3 p-4 bg-darkBg/95 border border-cardBorder rounded-xl space-y-3 text-xs animate-in fade-in duration-200">
+              {/* Tab Selector */}
+              <div className="flex gap-2 border-b border-cardBorder pb-2">
+                <button
+                  type="button"
+                  onClick={() => setAdvisoryTab('health')}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    advisoryTab === 'health'
+                      ? 'bg-saffron text-slate-950 font-bold'
+                      : 'bg-cardBg text-gray-300 hover:text-white'
+                  }`}
+                >
+                  🏥 CPCB Health &amp; Activity Advisories
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdvisoryTab('forecast')}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    advisoryTab === 'forecast'
+                      ? 'bg-saffron text-slate-950 font-bold'
+                      : 'bg-cardBg text-gray-300 hover:text-white'
+                  }`}
+                >
+                  🔮 24-Hour AI Predictive AQI &amp; Dispersion
+                </button>
+              </div>
+
+              {advisoryTab === 'health' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                  <div className="p-3 bg-cardBg/60 border border-cardBorder rounded-lg">
+                    <div className="font-semibold text-white mb-1 flex items-center gap-1.5">
+                      🏃 <span>Outdoor Cardio &amp; Jogging</span>
+                    </div>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">
+                      {healthAdvice.jogging}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-cardBg/60 border border-cardBorder rounded-lg">
+                    <div className="font-semibold text-white mb-1 flex items-center gap-1.5">
+                      👶 <span>Children &amp; Seniors</span>
+                    </div>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">
+                      {healthAdvice.children}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-cardBg/60 border border-cardBorder rounded-lg">
+                    <div className="font-semibold text-white mb-1 flex items-center gap-1.5">
+                      😷 <span>N95 Respirator Guidance</span>
+                    </div>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">
+                      {healthAdvice.mask}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-cardBg/60 border border-cardBorder rounded-lg">
+                    <div className="font-semibold text-white mb-1 flex items-center gap-1.5">
+                      🏠 <span>Indoor Air Purifier / HEPA</span>
+                    </div>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">
+                      {healthAdvice.airPurifier}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {advisoryTab === 'forecast' && (
+                <div className="space-y-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-cardBg/60 border border-cardBorder rounded-lg">
+                      <div className="text-gray-400 text-[11px]">24-Hour Projected AQI</div>
+                      <div className="text-lg font-bold text-white mt-1">
+                        {predictiveForecast.predictedAqi}{' '}
+                        <span className="text-xs text-gray-400 font-normal">CPCB Index</span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-cardBg/60 border border-cardBorder rounded-lg">
+                      <div className="text-gray-400 text-[11px]">Projected EcoQI &amp; Grade</div>
+                      <div className="text-lg font-bold text-emerald-400 mt-1 flex items-center gap-2">
+                        <span>{predictiveForecast.predictedEcoqi} / 100</span>
+                        <span className={`text-xs px-2 py-0.5 rounded border font-mono ${getGradeBadgeStyle(predictiveForecast.grade)}`}>
+                          {predictiveForecast.grade}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-cardBg/60 border border-cardBorder rounded-lg">
+                      <div className="text-gray-400 text-[11px]">Confidence &amp; Dispersion</div>
+                      <div className="text-lg font-bold text-cyan-300 mt-1">
+                        {predictiveForecast.confidencePct}%{' '}
+                        <span className="text-xs text-gray-400 font-normal">
+                          ({telemetry?.windSpeed || 12} km/h {telemetry?.windCompass || 'ENE'})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-blue-950/30 border border-blue-500/30 rounded-lg text-[11px] text-blue-200 leading-relaxed">
+                    <strong>💨 Meteorological Dispersion Analysis:</strong> Wind speeds at {telemetry?.windSpeed || 12} km/h blowing toward {telemetry?.windCompass || 'ENE'} are actively dispersing localized particulate emissions. Reports filed under <em>Air &amp; Pollution</em> or <em>Sanitation &amp; Waste</em> will be triaged with wind vector modeling to alert downwind municipal wards.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ── 2. SUBMITTER SCOPE & QUICK HAZARD PRESETS ── */}
 

@@ -773,25 +773,69 @@ app.get("/api/community-hero/leaderboard", async (_req, res) => {
 });
 
 
-// ---- GET live telemetry --------------------------------------------------
+// ---- GET live telemetry (Integrated with EcoScore India Engine) -----------
 app.get("/api/telemetry/live", async (req, res) => {
   try {
     const lat = parseFloat(req.query.lat) || 17.5449;
     const lon = parseFloat(req.query.lon) || 78.5718;
     const telemetry = await telemetryService.fetchAllTelemetry(lat, lon);
+
+    const temp = telemetry.merged?.temperature ?? telemetry.weather?.temperature ?? 28.4;
+    const humidity = telemetry.merged?.humidity ?? telemetry.weather?.humidity ?? 48;
+    const windSpeed = telemetry.merged?.wind_speed ?? telemetry.weather?.wind_speed ?? 11.2;
+    const precip = telemetry.merged?.precipitation ?? telemetry.weather?.precipitation ?? 0.0;
+    const pm10 = telemetry.merged?.pm10 ?? telemetry.airQuality?.pm10 ?? 64.0;
+    const pm25 = telemetry.merged?.pm2_5 ?? telemetry.airQuality?.pm2_5 ?? 38.5;
+    const euAqi = telemetry.merged?.european_aqi ?? telemetry.airQuality?.european_aqi ?? 48;
+
+    // EcoScore calculation from CS50x Final Project
+    let ecoqi = 100 - (pm25 * 0.4);
+    if (pm25 > 50) ecoqi = 80 - ((pm25 - 50) * 0.6);
+    if (pm25 > 100) ecoqi = 50 - ((pm25 - 100) * 0.35);
+    if (pm25 > 200) ecoqi = 15 - ((pm25 - 200) * 0.1);
+    ecoqi = Math.max(5.0, Math.min(100.0, Math.round(ecoqi * 10) / 10));
+
+    let grade = "A";
+    if (ecoqi >= 95) grade = "A+";
+    else if (ecoqi >= 85) grade = "A";
+    else if (ecoqi >= 70) grade = "B";
+    else if (ecoqi >= 55) grade = "C";
+    else if (ecoqi >= 40) grade = "D";
+    else grade = "F";
+
+    const sectors = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    const windDeg = telemetry.weather?.wind_direction_10m ?? 145;
+    const windCompass = sectors[Math.round(windDeg / 22.5) % 16] || "SE";
+
     return res.json({
-      ...telemetry,
+      temperature: temp,
+      precipitation: precip,
+      humidity: humidity,
+      windSpeed: windSpeed,
+      windDirectionDeg: windDeg,
+      windCompass: windCompass,
+      pm25: pm25,
+      pm10: pm10,
+      europeanAqi: euAqi,
+      ecoqi: ecoqi,
+      grade: grade,
+      location: telemetry.geo?.display_name ? telemetry.geo.display_name.split(",")[0] : "Hyderabad (Ward 4)",
+      condition: precip > 0 ? "Rain / Wet Surface" : "Clear Sky",
       weather: {
-        temperature: telemetry.merged.temperature,
-        humidity: telemetry.merged.humidity,
-        windSpeed: telemetry.merged.wind_speed,
-        precipitation: telemetry.merged.precipitation,
-        condition: telemetry.merged.precipitation > 0 ? "Rain / Wet Surface" : "Clear Sky",
+        temperature: temp,
+        humidity: humidity,
+        windSpeed: windSpeed,
+        precipitation: precip,
+        condition: precip > 0 ? "Rain / Wet Surface" : "Clear Sky",
       },
-      airQuality: telemetry.airQuality,
+      airQuality: {
+        pm2_5: pm25,
+        pm10: pm10,
+        european_aqi: euAqi,
+      },
       geo: telemetry.geo,
       merged: telemetry.merged,
-      source: "main-link Backend Telemetry",
+      source: "main-link & EcoScore India Telemetry",
     });
   } catch (err) {
     console.error("[Telemetry] Error:", err.message);
