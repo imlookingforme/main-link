@@ -14,7 +14,7 @@
     ],
     "counts": {
       "grievances": 0,
-      "official_schemes": 27,
+      "official_schemes": 28,
       "government_notifications": 4,
       "municipal_laws": 4,
       "bureaucracy_agent_services": 4,
@@ -24,6 +24,20 @@
   },
   "schemes": [
     {
+      "_id": "pm_vidyalaxmi_2026_flagship",
+      "scheme_id": "PM-VIDYALAXMI-2026",
+      "scheme_name": "PM Vidyalaxmi Scheme (\u092a\u0940\u090f\u092e \u0935\u093f\u0926\u094d\u092f\u093e\u0932\u0915\u094d\u0937\u094d\u092e\u0940 \u092f\u094b\u091c\u0928\u093e)",
+      "category": "Education & Scholarships",
+      "ministry": "Ministry of Education (Department of Higher Education)",
+      "benefits": "Collateral-free, guarantor-free education loan for students in top 860 NIRF-ranked Higher Education Institutions. 75% credit guarantee on loans up to \u20b97.5 Lakh. 3% interest subvention on loans up to \u20b910 Lakh for families earning up to \u20b98 Lakh/year during the moratorium period.",
+      "eligibility": "Meritorious students admitted to top 860 NIRF Quality Higher Education Institutions (QHEIs). No collateral or guarantor required. Family annual income up to \u20b98 Lakh for interest subvention.",
+      "official_fact": "Transparent, digital application process via unified PM Vidyalaxmi portal with direct DBT interest subvention. No processing commission or agent fees.",
+      "direct_apply_url": "https://vidyalakshmi.co.in",
+      "portal_domain": "vidyalakshmi.co.in",
+      "fee_inr": 0,
+      "target_audience": "Citizen"
+    },
+    {
       "_id": "6ae4e901ab8a3552502dd4ec",
       "scheme_id": "PM-KISAN-SAMMAN",
       "category": "Agriculture & Farmers Welfare",
@@ -31,13 +45,13 @@
       "eligibility": "All landholding farmer families with cultivable land in their names. Excludes institutional landholders and tax-paying professionals.",
       "fee_inr": 0,
       "ministry": "Ministry of Agriculture and Farmers Welfare",
-      "official_fact": "Registration and eKYC are completely free on pmkisan.gov.in or Common Service Centres (CSC). There is no ₹15,000 monthly allowance.",
+      "official_fact": "Registration and eKYC are completely free on pmkisan.gov.in or Common Service Centres (CSC). There is no \u20b915,000 monthly allowance.",
       "portal_domain": "pmkisan.gov.in",
       "scheme_name": "PM Kisan Samman Nidhi Yojana",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "source": "https://pmkisan.gov.in",
       "source_type": "HTML_SCRAPING",
-      "benefits": "₹6,000 per year directly credited into bank accounts in 3 equal four-monthly installments of ₹2,000 via DBT.",
+      "benefits": "\u20b96,000 per year directly credited into bank accounts in 3 equal four-monthly installments of \u20b92,000 via DBT.",
       "target_audience": "Citizen"
     },
     {
@@ -54,7 +68,7 @@
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "source": "https://pmjay.gov.in",
       "source_type": "HTML_SCRAPING",
-      "benefits": "Cashless and paperless secondary and tertiary hospitalization cover of ₹5,00,000 per family per year across 27,000+ empanelled public and private hospitals across India.",
+      "benefits": "Cashless and paperless secondary and tertiary hospitalization cover of \u20b95,00,000 per family per year across 27,000+ empanelled public and private hospitals across India.",
       "target_audience": "Citizen"
     },
     {
@@ -65,13 +79,13 @@
       "eligibility": "Traditional artisans in 18 identified trades (carpenters, blacksmiths, goldsmiths, potters, cobblers, tailors, sculptors, boat makers).",
       "fee_inr": 0,
       "ministry": "Ministry of Micro, Small and Medium Enterprises",
-      "official_fact": "Enrolment is free via CSC portals. No cash transfer of ₹5 Lakh exists.",
+      "official_fact": "Enrolment is free via CSC portals. No cash transfer of \u20b95 Lakh exists.",
       "portal_domain": "pmvishwakarma.gov.in",
       "scheme_name": "PM Vishwakarma Scheme for Traditional Artisans and Craftspeople",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "source": "https://pmvishwakarma.gov.in",
       "source_type": "HTML_SCRAPING",
-      "benefits": "PM Vishwakarma Certificate & ID card + 5-7 days basic skill training with ₹500/day stipend + ₹15,000 e-voucher toolkit incentive + collateral-free enterprise loan up to ₹1 Lakh (tranche 1) and ₹2 Lakh (tranche 2) at concessional 5% interest rate.",
+      "benefits": "PM Vishwakarma Certificate & ID card + 5-7 days basic skill training with \u20b9500/day stipend + \u20b915,000 e-voucher toolkit incentive + collateral-free enterprise loan up to \u20b91 Lakh (tranche 1) and \u20b92 Lakh (tranche 2) at concessional 5% interest rate.",
       "target_audience": "Small Business / MSME"
     },
     {
@@ -97,13 +111,13 @@
       "eligibility": "Parents or legal guardians of a girl child below 10 years of age. Maximum 2 accounts per family.",
       "fee_inr": 0,
       "ministry": "Ministry of Finance / Department of Posts",
-      "official_fact": "Opened at any Post Office or commercial bank. Government does NOT offer ₹2 Lakh bonus lottery.",
+      "official_fact": "Opened at any Post Office or commercial bank. Government does NOT offer \u20b92 Lakh bonus lottery.",
       "portal_domain": "indiapost.gov.in",
       "scheme_name": "Sukanya Samriddhi Yojana (SSY) - Beti Bachao Beti Padhao",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "source": "https://www.indiapost.gov.in",
       "source_type": "HTML_SCRAPING",
-      "benefits": "Highest sovereign-backed interest rate (8.2% per annum, compounded annually). Triple tax exemption under EEE regime (Section 80C deduction, tax-free interest, tax-free maturity at age 21). Minimum annual deposit only ₹250.",
+      "benefits": "Highest sovereign-backed interest rate (8.2% per annum, compounded annually). Triple tax exemption under EEE regime (Section 80C deduction, tax-free interest, tax-free maturity at age 21). Minimum annual deposit only \u20b9250.",
       "target_audience": "Citizen"
     },
     {
@@ -124,16 +138,16 @@
       "scheme_id": "NSP-POST-MATRIC-2026",
       "category": "Education & Scholarships",
       "direct_apply_url": "https://scholarships.gov.in/",
-      "eligibility": "Post-matriculation studies (class 11 to PhD) in recognized institutions. Annual family income below ₹2,50,000 for SC/ST and ₹1,50,000 for OBC.",
+      "eligibility": "Post-matriculation studies (class 11 to PhD) in recognized institutions. Annual family income below \u20b92,50,000 for SC/ST and \u20b91,50,000 for OBC.",
       "fee_inr": 0,
       "ministry": "Ministry of Social Justice and Empowerment",
-      "official_fact": "No registration fee is ever charged. Applications are accepted exclusively via scholarships.gov.in. Any WhatsApp forward demanding ₹500 fee is a scam.",
+      "official_fact": "No registration fee is ever charged. Applications are accepted exclusively via scholarships.gov.in. Any WhatsApp forward demanding \u20b9500 fee is a scam.",
       "portal_domain": "scholarships.gov.in",
       "scheme_name": "Post-Matric Scholarship for SC/ST/OBC Students",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "source": "https://scholarships.gov.in",
       "source_type": "HTML_SCRAPING",
-      "benefits": "100% compulsory non-refundable fees covered + monthly maintenance allowance up to ₹13,500/year for hostellers and ₹7,000/year for day scholars.",
+      "benefits": "100% compulsory non-refundable fees covered + monthly maintenance allowance up to \u20b913,500/year for hostellers and \u20b97,000/year for day scholars.",
       "target_audience": "Citizen"
     },
     {
@@ -144,7 +158,7 @@
       "eligibility": "Any citizen holding an Indian Driving License expiring within 1 year or expired within last 1 year (or up to 5 years with re-test).",
       "fee_inr": 200,
       "ministry": "Ministry of Road Transport and Highways",
-      "official_fact": "Statutory government fee is ₹200 (plus ₹200 if smart card issued). Third-party brokers charging ₹2,000 are unnecessary.",
+      "official_fact": "Statutory government fee is \u20b9200 (plus \u20b9200 if smart card issued). Third-party brokers charging \u20b92,000 are unnecessary.",
       "portal_domain": "parivahan.gov.in",
       "scheme_name": "Driving License Online Renewal & Endorsement",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
@@ -199,10 +213,10 @@
     {
       "_id": "6ae584adab8a3552502de2f2",
       "scheme_id": "NSP-PRE-MATRIC-2026",
-      "benefits": "Tuition fee waiver up to ₹3,500/year + annual maintenance allowance of ₹1,000 for day scholars and ₹7,000 for hostellers.",
+      "benefits": "Tuition fee waiver up to \u20b93,500/year + annual maintenance allowance of \u20b91,000 for day scholars and \u20b97,000 for hostellers.",
       "category": "Education & Scholarships",
       "direct_apply_url": "https://scholarships.gov.in/",
-      "eligibility": "Students studying in Classes 9 and 10 in government or recognized private schools with family income below ₹1,00,000 per annum.",
+      "eligibility": "Students studying in Classes 9 and 10 in government or recognized private schools with family income below \u20b91,00,000 per annum.",
       "fee_inr": 0,
       "ministry": "Ministry of Minority Affairs",
       "official_fact": "Direct Benefit Transfer into student's Aadhaar-linked savings account. Zero registration fees.",
@@ -215,10 +229,10 @@
     {
       "_id": "6ae584adab8a3552502de2f3",
       "scheme_id": "PM-USP-CSSS-2026",
-      "benefits": "₹12,000 per annum at Graduation level for first 3 years; ₹20,000 per annum at Post-Graduation level.",
+      "benefits": "\u20b912,000 per annum at Graduation level for first 3 years; \u20b920,000 per annum at Post-Graduation level.",
       "category": "Education & Scholarships",
       "direct_apply_url": "https://scholarships.gov.in/",
-      "eligibility": "Students above 80th percentile in relevant stream in Class 12 board exams pursuing regular degree courses with family income below ₹4.5 Lakh.",
+      "eligibility": "Students above 80th percentile in relevant stream in Class 12 board exams pursuing regular degree courses with family income below \u20b94.5 Lakh.",
       "fee_inr": 0,
       "ministry": "Department of Higher Education, Ministry of Education",
       "official_fact": "Official application via NSP portal. Disbursed directly through Public Financial Management System (PFMS).",
@@ -231,10 +245,10 @@
     {
       "_id": "6ae584adab8a3552502de2f4",
       "scheme_id": "AICTE-PRAGATI-GIRLS",
-      "benefits": "₹50,000 per annum for every year of study towards college fees, purchase of laptop, books, and software.",
+      "benefits": "\u20b950,000 per annum for every year of study towards college fees, purchase of laptop, books, and software.",
       "category": "Education & Scholarships",
       "direct_apply_url": "https://scholarships.gov.in/",
-      "eligibility": "Girl students admitted to 1st year of technical degree/diploma courses in AICTE-approved institutions with family income under ₹8 Lakh.",
+      "eligibility": "Girl students admitted to 1st year of technical degree/diploma courses in AICTE-approved institutions with family income under \u20b98 Lakh.",
       "fee_inr": 0,
       "ministry": "All India Council for Technical Education (AICTE)",
       "official_fact": "Maximum two girls per family eligible. Zero fees to apply.",
@@ -263,13 +277,13 @@
     {
       "_id": "6ae584adab8a3552502de2f6",
       "scheme_id": "KISAN-CREDIT-CARD",
-      "benefits": "Short-term credit for crop cultivation up to ₹3,00,000 at concessional 4% effective interest rate (7% baseline minus 3% prompt repayment incentive).",
+      "benefits": "Short-term credit for crop cultivation up to \u20b93,00,000 at concessional 4% effective interest rate (7% baseline minus 3% prompt repayment incentive).",
       "category": "Agriculture & Farmers Welfare",
       "direct_apply_url": "https://pmkisan.gov.in/",
       "eligibility": "Owner cultivators, tenant farmers, self-help groups (SHGs), and joint liability groups of farmers.",
       "fee_inr": 0,
       "ministry": "Ministry of Agriculture and Farmers Welfare / RBI",
-      "official_fact": "No processing fees for loans up to ₹1.6 Lakh. Collateral-free limit raised to ₹1.6 Lakh.",
+      "official_fact": "No processing fees for loans up to \u20b91.6 Lakh. Collateral-free limit raised to \u20b91.6 Lakh.",
       "portal_domain": "pmkisan.gov.in",
       "scheme_name": "Kisan Credit Card (KCC) Scheme with Interest Subvention",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
@@ -279,7 +293,7 @@
     {
       "_id": "6ae584adab8a3552502de2f7",
       "scheme_id": "PMEGP-MSME-2026",
-      "benefits": "Credit-linked capital subsidy: 25% subsidy in urban areas and 35% in rural areas for special categories (women, SC, ST, OBC, minorities). Maximum project cost up to ₹50 Lakh for manufacturing and ₹20 Lakh for services.",
+      "benefits": "Credit-linked capital subsidy: 25% subsidy in urban areas and 35% in rural areas for special categories (women, SC, ST, OBC, minorities). Maximum project cost up to \u20b950 Lakh for manufacturing and \u20b920 Lakh for services.",
       "category": "MSME & Small Business",
       "direct_apply_url": "https://www.kviconline.gov.in/pmegpeportal/",
       "eligibility": "Any individual above 18 years, SHGs, and cooperative societies setting up new micro-enterprises in manufacturing or service sectors.",
@@ -295,7 +309,7 @@
     {
       "_id": "6ae584adab8a3552502de2f8",
       "scheme_id": "PM-SVANIDHI-VENDORS",
-      "benefits": "Collateral-free working capital loan: 1st tranche ₹10,000; 2nd tranche ₹20,000; 3rd tranche ₹50,000 upon timely repayment. 7% annual interest subsidy credited directly to bank account + up to ₹1,200 annual cashback on digital transactions.",
+      "benefits": "Collateral-free working capital loan: 1st tranche \u20b910,000; 2nd tranche \u20b920,000; 3rd tranche \u20b950,000 upon timely repayment. 7% annual interest subsidy credited directly to bank account + up to \u20b91,200 annual cashback on digital transactions.",
       "category": "MSME & Small Business",
       "direct_apply_url": "https://pmsvanidhi.mohua.gov.in/",
       "eligibility": "All street vendors engaged in vending in urban areas on or before March 24, 2020 with vending certificate or recommendation letter from Urban Local Body (ULB).",
@@ -311,7 +325,7 @@
     {
       "_id": "6ae584adab8a3552502de2f9",
       "scheme_id": "MUDRA-YOJANA-LOAN",
-      "benefits": "Loans up to ₹20 Lakh across 4 categories: Shishu (up to ₹50,000), Kishore (₹50,000 to ₹5 Lakh), Tarun (₹5 Lakh to ₹10 Lakh), and Tarun Plus (₹10 Lakh to ₹20 Lakh).",
+      "benefits": "Loans up to \u20b920 Lakh across 4 categories: Shishu (up to \u20b950,000), Kishore (\u20b950,000 to \u20b95 Lakh), Tarun (\u20b95 Lakh to \u20b910 Lakh), and Tarun Plus (\u20b910 Lakh to \u20b920 Lakh).",
       "category": "MSME & Small Business",
       "direct_apply_url": "https://www.udyamimitra.in/",
       "eligibility": "Non-corporate, non-farm small/micro enterprises needing business loans.",
@@ -333,7 +347,7 @@
       "eligibility": "Any business entity fitting MSME classification based on composite investment and turnover criteria.",
       "fee_inr": 0,
       "ministry": "Ministry of Micro, Small and Medium Enterprises",
-      "official_fact": "Udyam registration is 100% FREE on official portal udyamregistration.gov.in. Private websites charging ₹1,000 to ₹3,000 are unauthorized impostors.",
+      "official_fact": "Udyam registration is 100% FREE on official portal udyamregistration.gov.in. Private websites charging \u20b91,000 to \u20b93,000 are unauthorized impostors.",
       "portal_domain": "udyamregistration.gov.in",
       "scheme_name": "Udyam Online Registration for Micro, Small & Medium Enterprises",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
@@ -343,13 +357,13 @@
     {
       "_id": "6ae584adab8a3552502de2fb",
       "scheme_id": "PMJJBY-LIFE-INSURANCE",
-      "benefits": "₹2,00,000 life insurance cover payable to nominee upon death of the insured due to any reason.",
+      "benefits": "\u20b92,00,000 life insurance cover payable to nominee upon death of the insured due to any reason.",
       "category": "Healthcare & Social Security",
       "direct_apply_url": "https://jansuraksha.gov.in/",
       "eligibility": "Individuals aged 18 to 50 years having a bank savings account with auto-debit consent.",
       "fee_inr": 436,
       "ministry": "Department of Financial Services, Ministry of Finance",
-      "official_fact": "Annual premium is strictly ₹436/year auto-debited in May. No agent commission or additional fees.",
+      "official_fact": "Annual premium is strictly \u20b9436/year auto-debited in May. No agent commission or additional fees.",
       "portal_domain": "jansuraksha.gov.in",
       "scheme_name": "Pradhan Mantri Jeevan Jyoti Bima Yojana (PMJJBY)",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
@@ -359,13 +373,13 @@
     {
       "_id": "6ae584adab8a3552502de2fc",
       "scheme_id": "PMSBY-ACCIDENT-INSURANCE",
-      "benefits": "₹2,00,000 cover for accidental death or total permanent disability; ₹1,00,000 for permanent partial disability.",
+      "benefits": "\u20b92,00,000 cover for accidental death or total permanent disability; \u20b91,00,000 for permanent partial disability.",
       "category": "Healthcare & Social Security",
       "direct_apply_url": "https://jansuraksha.gov.in/",
       "eligibility": "Individuals aged 18 to 70 years with a bank savings account.",
       "fee_inr": 20,
       "ministry": "Department of Financial Services, Ministry of Finance",
-      "official_fact": "Premium is strictly ₹20 per year. Available at all commercial, regional rural, and cooperative banks.",
+      "official_fact": "Premium is strictly \u20b920 per year. Available at all commercial, regional rural, and cooperative banks.",
       "portal_domain": "jansuraksha.gov.in",
       "scheme_name": "Pradhan Mantri Suraksha Bima Yojana (PMSBY)",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
@@ -375,7 +389,7 @@
     {
       "_id": "6ae584adab8a3552502de2fd",
       "scheme_id": "ATAL-PENSION-YOJANA",
-      "benefits": "Guaranteed minimum monthly pension of ₹1,000, ₹2,000, ₹3,000, ₹4,000, or ₹5,000 from age 60 until death, followed by lifetime pension to spouse and corpus return to nominee.",
+      "benefits": "Guaranteed minimum monthly pension of \u20b91,000, \u20b92,000, \u20b93,000, \u20b94,000, or \u20b95,000 from age 60 until death, followed by lifetime pension to spouse and corpus return to nominee.",
       "category": "Healthcare & Social Security",
       "direct_apply_url": "https://www.npscra.nsdl.co.in/",
       "eligibility": "All citizens aged 18 to 40 years holding a savings account. (Non-income tax payers).",
@@ -391,10 +405,10 @@
     {
       "_id": "6ae584adab8a3552502de2fe",
       "scheme_id": "PMAY-URBAN-HOUSING",
-      "benefits": "Interest subsidy up to 4% on home loans up to ₹25 Lakh for EWS/LIG families, providing net interest relief up to ₹1.80 Lakh.",
+      "benefits": "Interest subsidy up to 4% on home loans up to \u20b925 Lakh for EWS/LIG families, providing net interest relief up to \u20b91.80 Lakh.",
       "category": "Housing & Urban Affairs",
       "direct_apply_url": "https://pmay-urban.gov.in/",
-      "eligibility": "Economically Weaker Section (EWS - income up to ₹3L), Low Income Group (LIG - income up to ₹6L), Middle Income Group (MIG - income up to ₹9L) families not owning a pucca house anywhere in India.",
+      "eligibility": "Economically Weaker Section (EWS - income up to \u20b93L), Low Income Group (LIG - income up to \u20b96L), Middle Income Group (MIG - income up to \u20b99L) families not owning a pucca house anywhere in India.",
       "fee_inr": 0,
       "ministry": "Ministry of Housing and Urban Affairs",
       "official_fact": "No fee for PMAY application. State urban bodies register beneficiaries online.",
@@ -407,7 +421,7 @@
     {
       "_id": "6ae584adab8a3552502de2ff",
       "scheme_id": "PMAY-GRAMIN-HOUSING",
-      "benefits": "Financial assistance of ₹1,20,000 in plains and ₹1,30,000 in hilly/difficult areas for pucca house construction + 90-95 days of unskilled labor wage under MGNREGS (approx ₹25,000) + ₹12,000 for toilet under SBM-G.",
+      "benefits": "Financial assistance of \u20b91,20,000 in plains and \u20b91,30,000 in hilly/difficult areas for pucca house construction + 90-95 days of unskilled labor wage under MGNREGS (approx \u20b925,000) + \u20b912,000 for toilet under SBM-G.",
       "category": "Housing & Urban Affairs",
       "direct_apply_url": "https://pmayg.nic.in/",
       "eligibility": "Rural households living in kutcha or dilapidated houses identified via SECC / Awaas+ list.",
@@ -423,10 +437,10 @@
     {
       "_id": "6ae584adab8a3552502de300",
       "scheme_id": "PMMVY-MATERNITY-BENEFIT",
-      "benefits": "Cash incentive of ₹5,000 directly transferred to bank account for early registration, antenatal check-up, and institutional delivery.",
+      "benefits": "Cash incentive of \u20b95,000 directly transferred to bank account for early registration, antenatal check-up, and institutional delivery.",
       "category": "Women & Child Welfare",
       "direct_apply_url": "https://pmmvy.wcd.gov.in/",
-      "eligibility": "Pregnant women and lactating mothers for first living child (₹5,000 in 2 installments) and additional ₹6,000 for second child if girl child.",
+      "eligibility": "Pregnant women and lactating mothers for first living child (\u20b95,000 in 2 installments) and additional \u20b96,000 for second child if girl child.",
       "fee_inr": 0,
       "ministry": "Ministry of Women and Child Development",
       "official_fact": "Application is 100% free through Anganwadi Centres or pmmvy.wcd.gov.in.",
@@ -445,7 +459,7 @@
       "eligibility": "Citizens aged 16+ (for gearless two-wheeler up to 50cc) or 18+ (for light motor vehicles) passing online road safety audio-visual test.",
       "fee_inr": 150,
       "ministry": "Ministry of Road Transport and Highways",
-      "official_fact": "Government fee is ₹150 for test and ₹50 per vehicle class. Process is completely faceless.",
+      "official_fact": "Government fee is \u20b9150 for test and \u20b950 per vehicle class. Process is completely faceless.",
       "portal_domain": "parivahan.gov.in",
       "scheme_name": "Learner's License Online Faceless Issuance",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
@@ -515,7 +529,7 @@
       "governing_body": "Ministry of Environment, Forest and Climate Change & Municipal Corporations",
       "jurisdiction": "All Urban Local Bodies (ULBs) across India",
       "mandate": "Mandatory door-to-door collection of segregated municipal solid waste (Wet, Dry, Domestic Hazardous). Prohibits burning of leaves, garbage, or plastic in public spaces.",
-      "penal_provisions": "Fine up to ₹5,000 for open waste burning or littering. Municipal authorities failing to clear overflowing bins within 24 hours are subject to state pollution control penalties.",
+      "penal_provisions": "Fine up to \u20b95,000 for open waste burning or littering. Municipal authorities failing to clear overflowing bins within 24 hours are subject to state pollution control penalties.",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "sla_clearance_hours": 24,
       "statutory_act": "Environment (Protection) Act, 1986",
@@ -537,7 +551,7 @@
     {
       "_id": "6ae584aeab8a3552502de308",
       "law_id": "MUNI-CITIZEN-SLA-CHARTER",
-      "compensatory_penalty": "Municipal officers failing to redress reported critical civic hazards within SLA deadline are liable to pay compensatory fine of ₹250/day deducted from salary under the RTS Act.",
+      "compensatory_penalty": "Municipal officers failing to redress reported critical civic hazards within SLA deadline are liable to pay compensatory fine of \u20b9250/day deducted from salary under the RTS Act.",
       "governing_body": "Municipal Corporations & State Right to Public Services Commissions",
       "jurisdiction": "Urban Municipalities (e.g. GHMC, BBMP, BMC, MCD)",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
@@ -652,7 +666,7 @@
           "stage": 4,
           "pct": 90,
           "action": "Payment Gateway Redirect",
-          "desc": "Pre-populates treasury payment slip of ₹200 and generates transaction challan."
+          "desc": "Pre-populates treasury payment slip of \u20b9200 and generates transaction challan."
         },
         {
           "stage": 5,
@@ -793,8 +807,8 @@
     {
       "_id": "6ae4e901ab8a3552502dd4f8",
       "claim_id": "PIB-FC-PM-KISAN-15000",
-      "claim_text": "PM Kisan Samman Nidhi increased to ₹15,000 monthly allowance for all citizens.",
-      "official_debunk": "PIB Fact Check: FAKE NEWS. Under PM-KISAN, eligible landholding farmer families receive strictly ₹6,000 per year in three installments of ₹2,000.",
+      "claim_text": "PM Kisan Samman Nidhi increased to \u20b915,000 monthly allowance for all citizens.",
+      "official_debunk": "PIB Fact Check: FAKE NEWS. Under PM-KISAN, eligible landholding farmer families receive strictly \u20b96,000 per year in three installments of \u20b92,000.",
       "portal_domain": "factcheck.pib.gov.in",
       "scraped_at": "2026-10-30T19:46:12.050193+00:00",
       "source_type": "HTML_SCRAPING",
@@ -815,7 +829,7 @@
     {
       "_id": "6ae4e901ab8a3552502dd4fa",
       "claim_id": "PIB-FC-FREE-SOLAR-ROOFTOP-FEES",
-      "claim_text": "Pay ₹1,500 registration charge on telegram to receive free solar rooftop panels under PM Surya Ghar.",
+      "claim_text": "Pay \u20b91,500 registration charge on telegram to receive free solar rooftop panels under PM Surya Ghar.",
       "official_debunk": "Ministry of New and Renewable Energy: FAKE. Official application on pmsuryaghar.gov.in has no third-party WhatsApp or Telegram processing fee.",
       "portal_domain": "factcheck.pib.gov.in",
       "scraped_at": "2026-10-30T19:46:12.050193+00:00",
@@ -836,12 +850,12 @@
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "source_url": "https://factcheck.pib.gov.in",
       "verdict": "Fake/Scam",
-      "viral_claim": "PM Scholarship Scheme 2026 requires ₹500 processing fee paid via UPI to claim ₹13,500 grant"
+      "viral_claim": "PM Scholarship Scheme 2026 requires \u20b9500 processing fee paid via UPI to claim \u20b913,500 grant"
     },
     {
       "_id": "6ae584aeab8a3552502de30f",
       "claim_id": "PIB-FC-2024-002",
-      "official_debunk": "PIB Fact Check: FAKE NEWS. Under PM-KISAN, installment amount is fixed at ₹2,000, not ₹15,000. All official registrations take place strictly on pmkisan.gov.in.",
+      "official_debunk": "PIB Fact Check: FAKE NEWS. Under PM-KISAN, installment amount is fixed at \u20b92,000, not \u20b915,000. All official registrations take place strictly on pmkisan.gov.in.",
       "red_flags": [
         "Exaggerated monetary benefit",
         "Unofficial non-gov domain (.online)",
@@ -851,22 +865,22 @@
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "source_url": "https://factcheck.pib.gov.in",
       "verdict": "Fake/Scam",
-      "viral_claim": "PM-KISAN 17th installment of ₹15,000 released today. Register on pmkisan-bonus.online to claim"
+      "viral_claim": "PM-KISAN 17th installment of \u20b915,000 released today. Register on pmkisan-bonus.online to claim"
     },
     {
       "_id": "6ae584aeab8a3552502de310",
       "claim_id": "PIB-FC-2024-003",
-      "official_debunk": "National Health Authority Fact Check: FRAUDULENT LETTERHEAD. Ayushman Bharat PM-JAY is a health insurance scheme covering hospitalization expenses up to ₹5 Lakh at empanelled hospitals. It does NOT transfer cash or distribute lottery prizes.",
+      "official_debunk": "National Health Authority Fact Check: FRAUDULENT LETTERHEAD. Ayushman Bharat PM-JAY is a health insurance scheme covering hospitalization expenses up to \u20b95 Lakh at empanelled hospitals. It does NOT transfer cash or distribute lottery prizes.",
       "red_flags": [
         "Forged government seal and letterhead",
         "Cash lottery claim",
-        "Demands ₹999 smart card processing fee"
+        "Demands \u20b9999 smart card processing fee"
       ],
       "scheme_targeted": "AYUSHMAN-BHARAT-PMJAY",
       "scraped_at": "2026-10-31T06:03:24.603988+00:00",
       "source_url": "https://pmjay.gov.in",
       "verdict": "Fake/Scam",
-      "viral_claim": "Ayushman Bharat Golden Card ₹5 Lakh direct cash transfer lottery letter issued with official seal"
+      "viral_claim": "Ayushman Bharat Golden Card \u20b95 Lakh direct cash transfer lottery letter issued with official seal"
     },
     {
       "_id": "6ae584aeab8a3552502de311",
