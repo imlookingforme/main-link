@@ -20,6 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, UploadFile, HTTPException, WebSocket, WebSocketDisconnect
 from loguru import logger
 from PIL import Image
+import numpy as np
 
 from app.config import get_settings
 from app.models.schemas import (
@@ -42,9 +43,38 @@ router = APIRouter(prefix="/api", tags=["verification"])
 
 # Lazy singletons
 _kb: Optional[KnowledgeBaseBuilder] = None
+_text_verifier: Optional[TextVerifier] = None
+_img_analyzer: Optional[ImagePamphletAnalyzer] = None
+_vid_detector: Optional[VideoDeepfakeDetector] = None
+_aud_detector: Optional[AudioSpoofDetector] = None
+_fusion_layer: Optional[FusionLayer] = None
 _forensic_engine: Optional[MultimodalFactAndDeepfakeEngine] = None
 _playwright_agent: Optional[PlaywrightExecutionAgent] = None
 _ingest: Optional[IngestRouter] = None
+
+def get_kb() -> KnowledgeBaseBuilder:
+    global _kb
+    if _kb is None:
+        _kb = KnowledgeBaseBuilder()
+    return _kb
+
+def get_text_verifier() -> TextVerifier:
+    global _text_verifier
+    if _text_verifier is None:
+        _text_verifier = TextVerifier(kb=get_kb())
+    return _text_verifier
+
+def get_img_analyzer() -> ImagePamphletAnalyzer:
+    global _img_analyzer
+    if _img_analyzer is None:
+        _img_analyzer = ImagePamphletAnalyzer()
+    return _img_analyzer
+
+def get_fusion_layer() -> FusionLayer:
+    global _fusion_layer
+    if _fusion_layer is None:
+        _fusion_layer = FusionLayer()
+    return _fusion_layer
 
 def get_forensic_engine() -> MultimodalFactAndDeepfakeEngine:
     global _forensic_engine
@@ -63,7 +93,6 @@ def get_ingest() -> IngestRouter:
     if _ingest is None:
         _ingest = IngestRouter()
     return _ingest
-
 
 # ─────────────────────────── REST Endpoints ───────────────────────────
 
@@ -91,20 +120,29 @@ async def audit_comprehensive(
     image: Optional[UploadFile] = File(default=None),
     audio: Optional[UploadFile] = File(default=None),
 ):
-    """
-    Unified forensic audit:
-    - ViT FaceForensics++ video/image deepfake audit
-    - Wav2Vec2 voice cloning/TTS audit
-    - DeBERTa-v3 FEVER NLI verification against official registries
-    - Phishing URL and unauthorized fee scanner
-    """
     engine = get_forensic_engine()
+    img_analyzer = get_img_analyzer()
+    fusion = get_fusion_layer()
 
     image_obj = None
+    pamphlet_analysis = None
+    combined_text = text
+
     if image is not None:
         try:
             img_bytes = await image.read()
             image_obj = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            # Run previously unlinked ImagePamphletAnalyzer (OCR + domain + seal check)
+            pamphlet_res = img_analyzer.analyze(np.array(image_obj))
+            pamphlet_analysis = {
+                "ocr_text": pamphlet_res.ocr_text,
+                "domain_check": pamphlet_res.domain_check,
+                "seal_check": pamphlet_res.seal_check,
+                "ai_generated_score": pamphlet_res.ai_generated_score,
+                "suspicious_elements": pamphlet_res.suspicious_elements,
+            }
+            if pamphlet_res.ocr_text:
+                combined_text = f"{text}\n{pamphlet_res.ocr_text}".strip()
         except Exception as e:
             logger.warning(f"Could not parse uploaded image: {e}")
 
@@ -121,10 +159,27 @@ async def audit_comprehensive(
             logger.warning(f"Could not parse uploaded audio: {e}")
 
     report = engine.audit_full(
-        claim_text=text,
+        claim_text=combined_text,
         image_data=image_obj,
         audio_data=audio_arr,
     )
+
+    if pamphlet_analysis:
+        report.modality_breakdown["pamphlet_ocr_forensics"] = pamphlet_analysis
+        report.suspicious_flags.extend(pamphlet_analysis.get("suspicious_elements", []))
+
+    # Run previously unlinked FusionLayer
+    fused = fusion.predict(FusionInput(
+        text_score=report.fake_probability,
+        image_score=report.modality_breakdown.get("image", {}).get("synthetic_probability"),
+        audio_score=report.modality_breakdown.get("audio", {}).get("synthetic_probability"),
+        text_verdict=report.verdict,
+        suspicious_signals=report.suspicious_flags,
+    ))
+    report.modality_breakdown["calibrated_fusion"] = {
+        "fused_fake_probability": fused.fake_probability,
+        "fused_verdict": fused.verdict,
+    }
 
     return {
         "verdict": report.verdict,
@@ -134,12 +189,19 @@ async def audit_comprehensive(
         "ground_truth_excerpt": report.ground_truth_excerpt,
         "matched_scheme_id": report.matched_scheme_id,
         "official_source": report.official_source,
+        "official_portal_url": report.direct_apply_url or report.official_source,
         "direct_apply_url": report.direct_apply_url,
         "modality_breakdown": report.modality_breakdown,
-        "suspicious_flags": report.suspicious_flags,
+        "media_forensics": {
+            "media_type": "IMAGE_OR_DOCUMENT" if image_obj else "TEXT_ONLY",
+            "file_name": image.filename if image else "N/A",
+            "synthetic_probability": f"{report.fake_probability:.2f}",
+            "visual_artifacts": report.suspicious_flags or ["Verified Clean"],
+        } if image else None,
+        "suspicious_flags": list(dict.fromkeys(report.suspicious_flags)),
         "mascot_explanation": report.mascot_explanation,
         "can_auto_apply": report.can_auto_apply,
-        "processing_time_ms": report.processing_time_ms
+        "processing_time_ms": report.processing_time_ms,
     }
 
 
@@ -222,9 +284,20 @@ async def one_click_apply_agent_ws(websocket: WebSocket, scheme_id: str):
     """
     Playwright Browser Automation Agent WebSocket.
     Streams progress from 0% to 100% directly to the live frontend progress bar.
+    Reads optional citizen vault query parameters (name, income, category, uid).
     """
     await websocket.accept()
     logger.info(f"WebSocket client connected for scheme application: {scheme_id}")
+
+    params = dict(websocket.query_params)
+    citizen_vault = {
+        k: v for k, v in {
+            "full_name": params.get("name"),
+            "annual_income": params.get("income"),
+            "category": params.get("category"),
+            "aadhaar_last4": params.get("uid", "")[-4:] if params.get("uid") else None,
+        }.items() if v
+    }
 
     agent = get_playwright_agent()
 
@@ -240,6 +313,7 @@ async def one_click_apply_agent_ws(websocket: WebSocket, scheme_id: str):
     try:
         result = await agent.execute_application(
             scheme_id=scheme_id,
+            citizen_vault=citizen_vault,
             progress_callback=emit_progress
         )
         await websocket.send_text(json.dumps({
