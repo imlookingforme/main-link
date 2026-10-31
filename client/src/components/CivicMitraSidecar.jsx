@@ -13,28 +13,60 @@ const QUICK_PROMPTS = [
   'Post-Matric Scholarship eligibility',
 ];
 
+const LANG_OPTIONS = [
+  { id: 'Hindi', label: '🇮🇳 हिन्दी / Hinglish', bcp47: 'hi-IN' },
+  { id: 'Telugu', label: '🇮🇳 తెలుగు (Telugu)', bcp47: 'te-IN' },
+  { id: 'Tamil', label: '🇮🇳 தமிழ் (Tamil)', bcp47: 'ta-IN' },
+  { id: 'Kannada', label: '🇮🇳 ಕನ್ನಡ (Kannada)', bcp47: 'kn-IN' },
+  { id: 'Bengali', label: '🇮🇳 বাংলা (Bengali)', bcp47: 'bn-IN' },
+  { id: 'Marathi', label: '🇮🇳 मराठी (Marathi)', bcp47: 'mr-IN' },
+  { id: 'Gujarati', label: '🇮🇳 ગુજરાતી (Gujarati)', bcp47: 'gu-IN' },
+  { id: 'English', label: '🌐 English', bcp47: 'en-IN' },
+];
+
+const LANG_CODES = {
+  Hindi: 'hi-IN',
+  Telugu: 'te-IN',
+  Tamil: 'ta-IN',
+  Kannada: 'kn-IN',
+  Bengali: 'bn-IN',
+  Marathi: 'mr-IN',
+  Gujarati: 'gu-IN',
+  English: 'en-IN'
+};
+
 export default function CivicMitraSidecar({ initialOpen = false }) {
   const [isOpen, setIsOpen] = useState(initialOpen);
+  const [selectedLang, setSelectedLang] = useState('Hindi');
   const [messages, setMessages] = useState([
     {
       role: 'ai',
-      content: `🙏 **Namaste! I am Civic Mitra (नागरिक मित्र)**\n\nYour 24/7 AI guide to Indian government welfare schemes, citizen rights, municipal laws, and civic hazard tracking. \n\n*Aap mujhse Hindi, English, ya Hinglish me kisi bhi sarkari yojana ke baare me pooch sakte hain!*`,
+      content: `🙏 **Namaste! I am Civic Mitra (नागरिक मित्र)**\n\nYour 24/7 AI guide to Indian government welfare schemes, citizen rights, municipal laws, and civic hazard tracking.\n\n*Aap mujhse Hindi, Telugu, Tamil, ya English me kisi bhi sarkari yojana ke baare me pooch sakte hain!*`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [speakingIdx, setSpeakingIdx] = useState(null);
-  const [selectedLang, setSelectedLang] = useState('Hindi');
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
+
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const baseInputRef = useRef('');
+  const activeAudioRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen]);
+
+  // Dynamically update speech recognition language when user changes dropdown
+  useEffect(() => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.lang = LANG_CODES[selectedLang] || 'en-IN';
+    }
+  }, [selectedLang, isListening]);
 
   const handleSend = async (textToSend) => {
     const q = textToSend || input.trim();
@@ -54,7 +86,7 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
         question: q,
         preferredLanguage: selectedLang,
       });
-      const replyText = res.data?.reply || res.data?.answer || res.data?.response || generateCivicResponse(q);
+      const replyText = res.data?.reply || res.data?.answer || res.data?.response || generateCivicResponse(q, selectedLang);
       setMessages((prev) => [
         ...prev,
         {
@@ -64,7 +96,7 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
         }
       ]);
     } catch {
-      const replyText = generateCivicResponse(q);
+      const replyText = generateCivicResponse(q, selectedLang);
       setMessages((prev) => [
         ...prev,
         {
@@ -76,7 +108,7 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
     }
   };
 
-  // Fixed Non-Repeating Speech-to-Text
+  // Fixed Non-Repeating Speech-to-Text with dynamic regional language
   const toggleSpeech = () => {
     if (isListening) {
       if (recognitionRef.current) recognitionRef.current.stop();
@@ -92,8 +124,7 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
 
     baseInputRef.current = input;
     const recognition = new SpeechRecognition();
-    const langCodes = { Hindi: 'hi-IN', English: 'en-IN', Telugu: 'te-IN', Tamil: 'ta-IN', Kannada: 'kn-IN', Bengali: 'bn-IN' };
-    recognition.lang = langCodes[selectedLang] || (selectedLang === 'Hindi' ? 'hi-IN' : 'en-IN');
+    recognition.lang = LANG_CODES[selectedLang] || 'en-IN';
     recognition.interimResults = false;
     recognition.continuous = false;
 
@@ -132,25 +163,71 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
     setIsListening(true);
   };
 
-  // Text to Speech
-  const speakMessage = (text, idx) => {
-    if ('speechSynthesis' in window) {
-      if (speakingIdx === idx) {
-        window.speechSynthesis.cancel();
-        setSpeakingIdx(null);
+  // Multilingual Text-to-Speech (Neural edge-tts + Web Speech Fallback)
+  const speakMessage = async (text, idx) => {
+    if (speakingIdx === idx) {
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+        activeAudioRef.current.currentTime = 0;
+        activeAudioRef.current = null;
+      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      setSpeakingIdx(null);
+      return;
+    }
+
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current.currentTime = 0;
+      activeAudioRef.current = null;
+    }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+    setSpeakingIdx(idx);
+    setIsSynthesizing(true);
+
+    const clean = text.replace(/[*#_`\[\]()]/g, ' ').replace(/https?:\/\/\S+/g, '').trim();
+
+    try {
+      const res = await axios.post('/api/voice/synthesize', {
+        text: clean,
+        language: selectedLang,
+      });
+
+      if (res.data && res.data.audioUrl) {
+        const audio = new Audio(res.data.audioUrl);
+        activeAudioRef.current = audio;
+        audio.onended = () => {
+          setSpeakingIdx(null);
+          activeAudioRef.current = null;
+        };
+        audio.onerror = () => {
+          fallbackBrowserSpeech(clean, selectedLang, idx);
+        };
+        await audio.play();
+        setIsSynthesizing(false);
         return;
       }
-      window.speechSynthesis.cancel();
-      // Clean markdown tags for natural speech
-      const clean = text.replace(/[*#_`\[\]()]/g, ' ').replace(/https?:\/\/\S+/g, '');
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = /[\u0900-\u097F]/.test(clean) ? 'hi-IN' : 'en-IN';
-      utterance.rate = 0.95;
-      utterance.onend = () => setSpeakingIdx(null);
-      utterance.onerror = () => setSpeakingIdx(null);
-      setSpeakingIdx(idx);
-      window.speechSynthesis.speak(utterance);
+    } catch {
+      // Backend unavailable; fallback to browser TTS
     }
+
+    setIsSynthesizing(false);
+    fallbackBrowserSpeech(clean, selectedLang, idx);
+  };
+
+  const fallbackBrowserSpeech = (clean, lang, idx) => {
+    if (!('speechSynthesis' in window)) {
+      setSpeakingIdx(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = LANG_CODES[lang] || 'en-IN';
+    utterance.rate = 0.95;
+    utterance.onend = () => setSpeakingIdx(null);
+    utterance.onerror = () => setSpeakingIdx(null);
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
@@ -174,7 +251,7 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
             </div>
             <div className="text-[10px] text-green-100 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              <span>Ask in Hindi / English</span>
+              <span>Ask in Hindi, Telugu, Tamil, English</span>
             </div>
           </div>
           <ChevronRight size={16} className="text-green-200 group-hover:translate-x-0.5 transition" />
@@ -186,7 +263,7 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
         <aside
           role="dialog"
           aria-label="Civic Mitra Assistant"
-          className="fixed bottom-0 right-0 top-0 sm:top-auto sm:bottom-6 sm:right-6 w-full sm:w-[410px] h-full sm:h-[620px] bg-slate-900/98 backdrop-blur-xl border border-slate-700/80 rounded-none sm:rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
+          className="fixed bottom-0 right-0 top-0 sm:top-auto sm:bottom-6 sm:right-6 w-full sm:w-[420px] h-full sm:h-[630px] bg-slate-900/98 backdrop-blur-xl border border-slate-700/80 rounded-none sm:rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
           {/* Header */}
           <div className="p-3.5 bg-gradient-to-r from-slate-900 via-emerald-950/80 to-slate-900 border-b border-slate-700/80 flex items-center justify-between">
@@ -203,21 +280,24 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
                 </div>
                 <p className="text-[10px] text-gray-300 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                  24/7 AI Civic &amp; Welfare Guide
+                  Multilingual AI Welfare &amp; Civic Guide
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-1">
-              {/* Language Selector */}
+            <div className="flex items-center gap-1.5">
+              {/* Regional Language Selector */}
               <select
                 value={selectedLang}
                 onChange={(e) => setSelectedLang(e.target.value)}
-                className="bg-slate-800 text-gray-200 text-[11px] px-2 py-1 rounded border border-slate-700 focus:outline-none focus:border-indiaGreen"
-                title="Voice Language"
+                className="bg-slate-800 text-gray-200 text-[11px] px-2 py-1 rounded border border-slate-700 focus:outline-none focus:border-indiaGreen cursor-pointer"
+                title="Voice & Text Language"
               >
-                <option value="Hindi">🇮🇳 हिन्दी / Hinglish</option>
-                <option value="English">🌐 English</option>
+                {LANG_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
 
               <button
@@ -238,68 +318,79 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
                 className={`flex gap-2.5 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {m.role === 'ai' && (
-                  <div className="w-7 h-7 rounded-lg bg-emerald-950 border border-emerald-700 flex items-center justify-center text-sm shrink-0 mt-0.5">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-900/60 border border-emerald-500/40 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
                     🏛️
                   </div>
                 )}
                 <div
-                  className={`max-w-[85%] rounded-xl p-3 leading-relaxed ${
+                  className={`max-w-[85%] rounded-2xl p-3 leading-relaxed shadow-sm ${
                     m.role === 'user'
-                      ? 'bg-indiaGreen text-white rounded-br-none shadow-md font-medium'
-                      : 'bg-slate-800/90 text-gray-100 rounded-bl-none border border-slate-700/80 shadow'
+                      ? 'bg-gradient-to-r from-saffron to-amber-600 text-slate-950 font-medium rounded-tr-none'
+                      : 'bg-slate-800/90 text-gray-100 border border-slate-700/80 rounded-tl-none whitespace-pre-wrap'
                   }`}
                 >
-                  <div className="whitespace-pre-wrap">{m.content}</div>
-                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-700/40 text-[10px] text-gray-400">
+                  <div>{m.content}</div>
+                  <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-700/40 text-[10px] text-gray-400">
                     <span>{m.timestamp}</span>
                     {m.role === 'ai' && (
                       <button
+                        type="button"
                         onClick={() => speakMessage(m.content, idx)}
-                        className="flex items-center gap-1 hover:text-white text-emerald-400 transition ml-2"
-                        title="Listen to this explanation"
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition ${
+                          speakingIdx === idx
+                            ? 'bg-saffron text-slate-950 font-bold animate-pulse'
+                            : 'hover:text-white hover:bg-slate-700/60'
+                        }`}
+                        title={`Listen in ${selectedLang}`}
                       >
                         {speakingIdx === idx ? <VolumeX size={12} /> : <Volume2 size={12} />}
-                        <span>{speakingIdx === idx ? 'Stop' : 'Listen'}</span>
+                        <span>{speakingIdx === idx ? 'Stop Voice' : `Listen (${selectedLang})`}</span>
                       </button>
                     )}
                   </div>
                 </div>
+                {m.role === 'user' && (
+                  <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-saffron text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                    U
+                  </div>
+                )}
               </div>
             ))}
             <div ref={chatEndRef} />
           </div>
 
-          {/* Quick Questions Strip */}
-          <div className="px-3 py-1.5 bg-slate-900/60 border-t border-slate-800/80 flex gap-1.5 overflow-x-auto scrollbar-none">
-            {QUICK_PROMPTS.map((p, i) => (
+          {/* Quick Prompts */}
+          <div className="px-3.5 py-2 border-t border-slate-800 bg-slate-900/50 flex gap-1.5 overflow-x-auto scrollbar-none">
+            {QUICK_PROMPTS.map((prompt, i) => (
               <button
                 key={i}
-                onClick={() => handleSend(p)}
-                className="whitespace-nowrap px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white rounded-full text-[10px] border border-slate-700/80 transition"
+                type="button"
+                onClick={() => handleSend(prompt)}
+                className="whitespace-nowrap px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-[10px] text-gray-300 rounded-lg transition"
               >
-                {p}
+                {prompt}
               </button>
             ))}
           </div>
 
           {/* Input Area */}
-          <div className="p-3 bg-slate-950 border-t border-slate-800">
+          <div className="p-3 bg-slate-950/90 border-t border-slate-800">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="flex items-center gap-2"
+              className="flex items-center gap-1.5"
             >
               <button
                 type="button"
                 onClick={toggleSpeech}
-                className={`p-2.5 rounded-xl border transition ${
+                className={`p-2 rounded-xl transition ${
                   isListening
-                    ? 'bg-red-900/40 border-red-500 text-red-300 animate-pulse'
-                    : 'bg-slate-800 border-slate-700 text-gray-300 hover:text-white hover:bg-slate-700'
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white'
                 }`}
-                title={isListening ? 'Listening... click to stop' : 'Speak your question'}
+                title={`Speech to Text (${selectedLang})`}
               >
                 {isListening ? <MicOff size={16} /> : <Mic size={16} />}
               </button>
@@ -308,17 +399,17 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask in Hindi, English, Hinglish..."
-                className="flex-1 bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-400 focus:outline-none focus:border-indiaGreen transition"
+                placeholder={`Ask in ${selectedLang} or English...`}
+                className="flex-1 bg-slate-900 text-gray-100 text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-indiaGreen"
               />
 
               <button
                 type="submit"
                 disabled={!input.trim()}
-                className="p-2.5 bg-indiaGreen hover:bg-green-700 disabled:opacity-40 text-white rounded-xl transition flex items-center justify-center shadow"
-                title="Send Message"
+                className="p-2 bg-gradient-to-r from-indiaGreen to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl disabled:opacity-40 transition"
+                title="Send message"
               >
-                <Send size={15} />
+                <Send size={16} />
               </button>
             </form>
           </div>

@@ -846,7 +846,8 @@ app.get("/api/telemetry/live", async (req, res) => {
 // ---- POST AI chat --------------------------------------------------------
 app.post("/api/ai/chat", async (req, res) => {
   try {
-    const { question, preferredLanguage, lat, lon } = req.body;
+    const { question, lat, lon } = req.body;
+    const preferredLanguage = req.body.preferredLanguage || req.body.selectedLang || req.body.language || "English";
     if (!question) {
       return res.status(400).json({ error: "Question is required." });
     }
@@ -908,7 +909,8 @@ const audioCache = new Map();
 
 app.post("/api/voice/synthesize", (req, res) => {
   try {
-    const { text, language = "English" } = req.body;
+    const text = req.body.text || req.body.q || "";
+    const language = req.body.language || req.body.lang || req.body.preferredLanguage || req.body.selectedLang || "English";
     if (!text || !text.trim()) {
       return res.status(400).json({ error: "Text is required for voice synthesis." });
     }
@@ -980,25 +982,27 @@ app.post("/api/policy/explain", async (req, res) => {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: process.env.AI_MODEL || "gemini-2.5-flash",
-      systemInstruction: `You are main-link Policy & Rights Explainer. Your mission is to analyze government welfare schemes, circulars, and laws, converting them into plain-language actionable rights for ${targetAudience}s in India. You MUST return ONLY valid JSON with keys:
-- title: string
-- rightsSummary: string (Exact legal/welfare rights in 2 sentences)
-- eligibility: string (Who qualifies, income/caste/age caps)
-- subsidiesAndBenefits: string (Exact financial subsidies %, loan caps, or tax exemptions)
-- citizenExplainer: string (Spoken explainer in ${language}, written naturally in ${language} script)
-- officialPortalUrl: string
-- applicationDeadline: string`,
+      systemInstruction: `You are main-link Policy & Rights Explainer. Your mission is to analyze government welfare schemes, circulars, and laws, converting them into plain-language actionable rights for ${targetAudience}s in India.
+CRITICAL LANGUAGE MANDATE: All descriptive fields MUST be generated in the authentic script of ${language} (e.g. Telugu script for Telugu, Devanagari script for Hindi, Tamil script for Tamil, Kannada script for Kannada, Bengali script for Bengali, Marathi in Devanagari, Gujarati script for Gujarati).
+You MUST return ONLY valid JSON with keys:
+- title: string (Scheme title in ${language} script)
+- rightsSummary: string (Exact legal/welfare rights in 2 sentences in ${language} script)
+- eligibility: string (Who qualifies, income/caste/age caps in ${language} script)
+- subsidiesAndBenefits: string (Exact financial subsidies %, loan caps, or tax exemptions in ${language} script)
+- citizenExplainer: string (Spoken explainer in ${language}, written naturally in ${language} script for speech synthesis)
+- officialPortalUrl: string (Official https URL)
+- applicationDeadline: string (Application timeline or Ongoing in ${language})`,
       generationConfig: {
         temperature: 0.2,
         responseMimeType: "application/json",
       }
     });
 
-    const prompt = `Explain the following Indian government scheme, policy notification, or law for ${targetAudience} in ${language}:
+    const prompt = `Explain the following Indian government scheme, policy notification, or law for ${targetAudience} strictly in ${language}:
 
 "${schemeOrTopic}"
 
-Ensure citizenExplainer is in pure, conversational ${language} suitable for text-to-speech audio narration.`;
+MANDATORY SCRIPT REQUIREMENT: Write title, rightsSummary, eligibility, subsidiesAndBenefits, and citizenExplainer 100% in authentic ${language} script. Ensure citizenExplainer is pure, conversational ${language} suitable for text-to-speech audio narration.`;
     const result = await model.generateContent(prompt);
     const explainerData = JSON.parse(result.response.text());
 

@@ -24,7 +24,7 @@ import { auth, googleProvider, signInWithPopup, isFirebaseConfigured } from './f
 import staticGovData from './data/staticGovData.json';
 import CivicMitraSidecar from './components/CivicMitraSidecar';
 import CommunityHeroTab2 from './components/CommunityHeroTab2';
-import { generateCivicResponse } from './services/civicAssistantEngine';
+import { generateCivicResponse, generatePolicyFallback } from './services/civicAssistantEngine';
 import sampleGrievances from './data/sampleGrievances.json';
 import {
   calculateEcoQI,
@@ -913,7 +913,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (currentMainTab === 'database' || currentMainTab === 'explainer') {
+    fetchDatabaseExplorer();
+  }, []);
+
+  useEffect(() => {
+    if (currentMainTab === 'database' || currentMainTab === 'explainer' || currentMainTab === 'forensic') {
       fetchDatabaseExplorer();
     }
   }, [currentMainTab]);
@@ -1311,29 +1315,11 @@ export default function App() {
       }
       throw new Error('Fallback policy explanation');
     } catch (err) {
-      console.warn('[Policy Explainer] Falling back to intelligent client explainer:', err);
-      const matched = (staticGovData.schemes || []).find(s => 
-        s.scheme_name.toLowerCase().includes(q.toLowerCase()) || 
-        q.toLowerCase().includes(s.scheme_name.toLowerCase())
-      );
-      
-      const title = matched ? matched.scheme_name : q;
-      const rightsSummary = matched ? matched.eligibility : `All eligible Indian citizens & registered micro-enterprises hold direct statutory rights under the ${q} framework without intermediary commission.`;
-      const eligibility = matched ? matched.eligibility : `Indian resident with Aadhaar-linked bank account, meeting prescribed family income or business turnover ceilings.`;
-      const subsidies = matched ? matched.financial_benefit : `Direct Benefit Transfer (DBT) credit or subsidised institutional credit assistance directly disbursed via PFMS.`;
-      const spokenScript = `Namaste. Here is your official policy guide for ${title}. Under this public framework, citizens and registered business units are entitled to direct welfare benefits without middlemen fees. Ensure your bank account is Aadhaar-seeded to receive direct subsidy transfers.`;
-
-      const fallbackData = {
-        title,
-        rightsSummary,
-        eligibility,
-        subsidiesAndBenefits: subsidies,
-        officialPortalUrl: matched ? matched.direct_apply_url : 'https://myscheme.gov.in',
-        spokenScript
-      };
+      console.warn('[Policy Explainer] Falling back to intelligent multilingual client explainer:', err);
+      const fallbackData = generatePolicyFallback(q, policyLanguage, policyAudience);
       setPolicyResult(fallbackData);
-      addToast(`Voice Explainer generated for ${title}!`, 'success');
-      speakText('policy-result', spokenScript, policyLanguage);
+      addToast(`Voice Explainer generated for ${fallbackData.title}!`, 'success');
+      speakText('policy-result', fallbackData.citizenExplainer || fallbackData.rightsSummary, policyLanguage);
     } finally {
       setPolicyExplainerLoading(false);
     }
@@ -2781,7 +2767,7 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-700/60 text-emerald-300 text-[11px] font-semibold flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    28 Official Schemes &amp; 14 PIB Debunks Active
+                    {(dbSchemes && dbSchemes.length > 0 ? dbSchemes.length : (dbStats?.counts?.official_schemes || 5041)).toLocaleString()} Official Schemes &amp; {(dbFactChecks && dbFactChecks.length > 0 ? dbFactChecks.length : (dbStats?.counts?.government_fact_checks || 14)).toLocaleString()} PIB Debunks Active
                   </span>
                 </div>
               </div>

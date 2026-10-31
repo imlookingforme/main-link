@@ -5,9 +5,11 @@ Supports authentic regional Indian voices:
 - Telugu (Shruti)
 - Tamil (Pallavi)
 - Kannada (Sapna)
+- Malayalam (Sobhana)
 - Bengali (Tanishaa)
 - Marathi (Aarohi)
 - Gujarati (Dhwani)
+- Punjabi (Ojas)
 - English (Neerja)
 """
 import sys
@@ -17,32 +19,56 @@ import asyncio
 import hashlib
 import json
 import base64
+import re
 import edge_tts
 
 VOICE_MAP = {
-    'Hindi': 'hi-IN-SwaraNeural',
-    'Telugu': 'te-IN-ShrutiNeural',
-    'Tamil': 'ta-IN-PallaviNeural',
-    'Kannada': 'kn-IN-SapnaNeural',
-    'Bengali': 'bn-IN-TanishaaNeural',
-    'Marathi': 'mr-IN-AarohiNeural',
-    'Gujarati': 'gu-IN-DhwaniNeural',
-    'English': 'en-IN-NeerjaNeural',
+    'hindi': 'hi-IN-SwaraNeural',
+    'telugu': 'te-IN-ShrutiNeural',
+    'tamil': 'ta-IN-PallaviNeural',
+    'kannada': 'kn-IN-SapnaNeural',
+    'malayalam': 'ml-IN-SobhanaNeural',
+    'bengali': 'bn-IN-TanishaaNeural',
+    'marathi': 'mr-IN-AarohiNeural',
+    'gujarati': 'gu-IN-DhwaniNeural',
+    'punjabi': 'pa-IN-OjasNeural',
+    'urdu': 'ur-IN-GulNeural',
+    'english': 'en-IN-NeerjaNeural',
     'hi': 'hi-IN-SwaraNeural',
     'te': 'te-IN-ShrutiNeural',
     'ta': 'ta-IN-PallaviNeural',
     'kn': 'kn-IN-SapnaNeural',
+    'ml': 'ml-IN-SobhanaNeural',
     'bn': 'bn-IN-TanishaaNeural',
     'mr': 'mr-IN-AarohiNeural',
     'gu': 'gu-IN-DhwaniNeural',
-    'en': 'en-IN-NeerjaNeural'
+    'pa': 'pa-IN-OjasNeural',
+    'ur': 'ur-IN-GulNeural',
+    'en': 'en-IN-NeerjaNeural',
+    'hi-in': 'hi-IN-SwaraNeural',
+    'te-in': 'te-IN-ShrutiNeural',
+    'ta-in': 'ta-IN-PallaviNeural',
+    'kn-in': 'kn-IN-SapnaNeural',
+    'ml-in': 'ml-IN-SobhanaNeural',
+    'bn-in': 'bn-IN-TanishaaNeural',
+    'mr-in': 'mr-IN-AarohiNeural',
+    'gu-in': 'gu-IN-DhwaniNeural',
+    'en-in': 'en-IN-NeerjaNeural',
 }
 
+def resolve_voice(lang: str) -> str:
+    if not lang:
+        return 'en-IN-NeerjaNeural'
+    clean_lang = lang.strip().lower()
+    for key, voice in VOICE_MAP.items():
+        if key in clean_lang or clean_lang in key:
+            return voice
+    return 'en-IN-NeerjaNeural'
+
 async def synthesize(text: str, language: str) -> str:
-    voice = VOICE_MAP.get(language, 'en-IN-NeerjaNeural')
+    voice = resolve_voice(language)
     # Clean text to remove markdown, excessive URLs or brackets
-    import re
-    cleaned = re.sub(r'[*_#`~]', '', text)
+    cleaned = re.sub(r'[*_#`~\[\]]', '', text)
     cleaned = re.sub(r'http\S+', '', cleaned)
     cleaned = cleaned.strip()
     if not cleaned:
@@ -75,7 +101,7 @@ def main():
             if stdin_data.strip():
                 data = json.loads(stdin_data)
                 text = data.get("text", "")
-                lang = data.get("lang", data.get("language", "English"))
+                lang = data.get("lang", data.get("language", data.get("preferredLanguage", data.get("selectedLang", "English"))))
         except Exception as e:
             sys.stderr.write(f"Error reading JSON from stdin: {e}\n")
 
@@ -85,7 +111,7 @@ def main():
 
     try:
         data_uri = asyncio.run(synthesize(text, lang))
-        sys.stdout.write(json.dumps({"success": True, "audioUrl": data_uri, "language": lang}))
+        sys.stdout.write(json.dumps({"success": True, "audioUrl": data_uri, "language": lang, "voice": resolve_voice(lang)}))
     except Exception as e:
         sys.stderr.write(f"Synthesis failed: {e}\n")
         sys.stdout.write(json.dumps({"success": False, "error": str(e)}))
