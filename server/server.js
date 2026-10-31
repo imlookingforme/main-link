@@ -1259,6 +1259,32 @@ app.use((err, _req, res, _next) => {
 // Start server
 // ---------------------------------------------------------------------------
 const PORT = process.env.PORT || 5000;
+// ---- GET /api/portal/proxy (Framing Proxy for Strict Portals) ----------------
+app.get("/api/portal/proxy", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("URL parameter is required");
+  try {
+    const axios = require("axios");
+    const response = await axios.get(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      },
+      responseType: "text",
+      timeout: 10000,
+    });
+    res.removeHeader("X-Frame-Options");
+    res.removeHeader("Content-Security-Policy");
+    let html = response.data;
+    if (typeof html === "string" && html.includes("<head>")) {
+      html = html.replace("<head>", `<head><base href="${targetUrl}">`);
+    }
+    return res.send(html);
+  } catch (err) {
+    return res.redirect(targetUrl);
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`[main-link] Server running on port ${PORT}`);
 });
