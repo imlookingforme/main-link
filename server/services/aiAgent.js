@@ -338,9 +338,9 @@ function getIntelligentCivicFallback(query, lang = "English") {
   }
 
   if (isHindi) {
-    return `🏛️ **मुख्य-लिंक नागरिक मित्र (Civic Mitra)**\n\nनमस्ते! आप हमारे 'Decentralized Database' टैब में 27 से अधिक सत्यापित सरकारी योजनाओं की जानकारी देख सकते हैं, या 'Report Civic Hazard' टैब में स्थानीय नागरिक समस्याओं की रिपोर्ट कर सकते हैं। आप किसी भी योजना (जैसे पीएम विद्यालक्ष्मी, पीएम-किसान, छात्रवृत्ति) के बारे में पूछ सकते हैं!`;
+    return `🏛️ **मुख्य-लिंक नागरिक मित्र (Civic Mitra)**\n\nनमस्ते! आप हमारे '📢 Policy, Rights & Scheme Database' टैब में 27 से अधिक सत्यापित सरकारी योजनाओं की जानकारी देख सकते हैं, या 'Report Civic Hazard' टैब में स्थानीय नागरिक समस्याओं की रिपोर्ट कर सकते हैं। आप किसी भी योजना (जैसे पीएम विद्यालक्ष्मी, पीएम-किसान, छात्रवृत्ति) के बारे में पूछ सकते हैं!`;
   }
-  return `🏛️ **main-link Civic Mitra Assistant**\n\nHello! You can explore our verified database of ${staticGovData.schemes?.length || 27} official government schemes in the 'Decentralized Database' tab, or submit localized issues in the 'Report Civic Hazard' tab. Feel free to ask about any scheme (such as PM Vidyalaxmi, PM-KISAN, NSP scholarships, or civic rights)!`;
+  return `🏛️ **main-link Civic Mitra Assistant**\n\nHello! You can explore our verified database of ${staticGovData.schemes?.length || 27} official government schemes in the '📢 Policy, Rights & Scheme Database' tab, or submit localized issues in the 'Report Civic Hazard' tab. Feel free to ask about any scheme (such as PM Vidyalaxmi, PM-KISAN, NSP scholarships, or civic rights)!`;
 }
 
 const staticGovData = require("../../client/src/data/staticGovData.json");

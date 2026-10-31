@@ -98,19 +98,30 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
     recognition.continuous = false;
 
     recognition.onresult = (e) => {
-      let fullTranscript = '';
-      for (let i = 0; i < e.results.length; ++i) {
-        fullTranscript += e.results[i][0].transcript + ' ';
+      let transcript = '';
+      for (let i = e.resultIndex; i < e.results.length; ++i) {
+        transcript += e.results[i][0].transcript;
       }
-      const words = fullTranscript.trim().split(/\s+/);
-      const deduped = [];
-      for (let i = 0; i < words.length; i++) {
-        if (i > 0 && words[i].toLowerCase() === words[i - 1].toLowerCase()) continue;
-        deduped.push(words[i]);
+      if (!transcript.trim() && e.results.length > 0) {
+        transcript = e.results[e.results.length - 1][0].transcript;
       }
-      const clean = deduped.join(' ');
+
+      const cleanProgressiveStutter = (str) => {
+        let s = str.trim();
+        const words = s.split(/\s+/);
+        for (let i = 1; i < words.length; i++) {
+          const candidate = words.slice(i).join(' ');
+          const prefix = words.slice(0, i).join(' ');
+          if (candidate.startsWith(prefix) && candidate.length > prefix.length) {
+            return cleanProgressiveStutter(candidate);
+          }
+        }
+        return s;
+      };
+
+      const clean = cleanProgressiveStutter(transcript);
       const prefix = baseInputRef.current ? baseInputRef.current.trim() + ' ' : '';
-      setInput(prefix + clean);
+      setInput((prefix + clean).trim());
     };
 
     recognition.onend = () => setIsListening(false);

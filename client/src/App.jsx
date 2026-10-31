@@ -30,11 +30,10 @@ import sampleGrievances from './data/sampleGrievances.json';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MAIN_TABS = [
-  { id: 'explainer', label: '📢 Policy & Rights Explainer', badge: 'Regional Voice' },
+  { id: 'explainer', label: '📢 Policy, Rights & Scheme Database', badge: 'Voice + MongoDB' },
   { id: 'report', label: '📥 Report Civic Hazard', badge: 'Multimodal' },
   { id: 'dashboard', label: '📊 Triage & Accountability', badge: 'Live Metrics' },
   { id: 'forensic', label: '🛡️ Fact-Check & Playwright Agent', badge: 'Forensic + Apply' },
-  { id: 'database', label: '🌐 Decentralized Database', badge: 'MongoDB Atlas' },
 ];
 
 const URGENCY_COLORS = { Low: '#138808', Medium: '#EAB308', High: '#FF9933', Critical: '#EF4444' };
@@ -819,7 +818,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (currentMainTab === 'database') {
+    if (currentMainTab === 'database' || currentMainTab === 'explainer') {
       fetchDatabaseExplorer();
     }
   }, [currentMainTab]);
@@ -1273,19 +1272,30 @@ export default function App() {
     recognition.continuous = false;
 
     recognition.onresult = (e) => {
-      let fullTranscript = '';
-      for (let i = 0; i < e.results.length; ++i) {
-        fullTranscript += e.results[i][0].transcript + ' ';
+      let transcript = '';
+      for (let i = e.resultIndex; i < e.results.length; ++i) {
+        transcript += e.results[i][0].transcript;
       }
-      const words = fullTranscript.trim().split(/\s+/);
-      const deduped = [];
-      for (let i = 0; i < words.length; i++) {
-        if (i > 0 && words[i].toLowerCase() === words[i - 1].toLowerCase()) continue;
-        deduped.push(words[i]);
+      if (!transcript.trim() && e.results.length > 0) {
+        transcript = e.results[e.results.length - 1][0].transcript;
       }
-      const clean = deduped.join(' ');
+
+      const cleanProgressiveStutter = (str) => {
+        let s = str.trim();
+        const words = s.split(/\s+/);
+        for (let i = 1; i < words.length; i++) {
+          const candidate = words.slice(i).join(' ');
+          const prefix = words.slice(0, i).join(' ');
+          if (candidate.startsWith(prefix) && candidate.length > prefix.length) {
+            return cleanProgressiveStutter(candidate);
+          }
+        }
+        return s;
+      };
+
+      const clean = cleanProgressiveStutter(transcript);
       const prefix = baseVoiceTextRef.current ? baseVoiceTextRef.current.trim() + ' ' : '';
-      setTextInput(prefix + clean);
+      setTextInput((prefix + clean).trim());
     };
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => {
@@ -1903,6 +1913,308 @@ export default function App() {
             </div>
           )}
         </section>
+
+            <section className="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-lg relative overflow-hidden">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xl">🌐</span>
+                                <h2 className="text-lg font-bold text-white">Decentralized Government Database Explorer</h2>
+                                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
+                                  MongoDB Atlas Live Sync
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">
+                                Multi-collection knowledge base accessed symmetrically by Node.js backend, Python forensic engine, and Playwright agent.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={fetchDatabaseExplorer}
+                              disabled={dbLoading}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-darkBg border border-cardBorder rounded-lg hover:bg-slate-700 text-xs font-semibold text-gray-200 transition"
+                            >
+                              <RefreshCw size={13} className={dbLoading ? 'animate-spin' : ''} />
+                              <span>Refresh DB Sync</span>
+                            </button>
+                          </div>
+
+                          {/* Collections Overview KPI Cards */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-5">
+                            {[
+                              { id: 'schemes', label: 'Official Schemes', count: dbSchemes.length || dbStats?.counts?.official_schemes || 27, icon: '📜' },
+                              { id: 'notifications', label: 'Gazette Notifs', count: dbNotifs.length || dbStats?.counts?.government_notifications || 4, icon: '🏛️' },
+                              { id: 'laws', label: 'Municipal Laws', count: dbLaws.length || dbStats?.counts?.municipal_laws || 4, icon: '⚖️' },
+                              { id: 'agent_services', label: 'Agent Services', count: dbAgentServices.length || dbStats?.counts?.bureaucracy_agent_services || 4, icon: '🤖' },
+                              { id: 'fact_checks', label: 'PIB Fact Checks', count: dbFactChecks.length || dbStats?.counts?.government_fact_checks || 9, icon: '🛡️' },
+                              { id: 'portals', label: 'Official Portals', count: dbPortals.length || dbStats?.counts?.official_portals || 16, icon: '🌐' }
+                            ].map((col) => (
+                              <button
+                                key={col.id}
+                                type="button"
+                                onClick={() => setDbActiveTab(col.id)}
+                                className={`p-3 rounded-xl border text-left transition-all ${
+                                  dbActiveTab === col.id
+                                    ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-saffron shadow-sm'
+                                    : 'bg-darkBg/80 border-cardBorder hover:border-slate-600'
+                                }`}
+                              >
+                                <div className="text-lg mb-1">{col.icon}</div>
+                                <div className="text-[11px] text-gray-400 truncate">{col.label}</div>
+                                <div className="text-base font-bold text-white">{col.count}</div>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Filter bar with Gemini AI Yojana Keyword Expansion */}
+                          <div className="mb-4 space-y-2">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={dbFilterText}
+                                onChange={(e) => {
+                                  setDbFilterText(e.target.value);
+                                  if (!e.target.value.trim()) {
+                                    setAiSearchResults(null);
+                                    setAiSchemeKeywords([]);
+                                    setAiSchemeExplanation('');
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleAiYojanaSearch();
+                                }}
+                                placeholder={
+                                  dbActiveTab === 'schemes'
+                                    ? "Search yojanas (e.g. 'fertiliser', 'education loan', 'solar panel', 'kisan')..."
+                                    : `Search ${dbActiveTab} in MongoDB Atlas...`
+                                }
+                                className="flex-1 px-3.5 py-2 bg-darkBg border border-cardBorder rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-saffron"
+                              />
+                              {dbActiveTab === 'schemes' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAiYojanaSearch()}
+                                  disabled={aiSchemeSearching || !dbFilterText.trim()}
+                                  className="px-4 py-2 bg-gradient-to-r from-saffron to-amber-600 hover:from-orange-500 hover:to-amber-700 text-darkBg font-bold text-xs rounded-lg transition disabled:opacity-50 flex items-center gap-1.5 shadow"
+                                  title="Call Gemini API to expand keywords and search database"
+                                >
+                                  <Sparkles size={14} className={aiSchemeSearching ? 'animate-spin' : ''} />
+                                  <span>{aiSchemeSearching ? 'Expanding...' : '✨ Gemini AI Search'}</span>
+                                </button>
+                              )}
+                              {(aiSearchResults || dbFilterText) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDbFilterText('');
+                                    setAiSearchResults(null);
+                                    setAiSchemeKeywords([]);
+                                    setAiSchemeExplanation('');
+                                  }}
+                                  className="px-3 py-2 bg-cardBorder text-gray-300 hover:bg-slate-700 text-xs rounded-lg transition"
+                                  title="Clear search"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Gemini Generated Keywords & Intent Ribbon */}
+                            {dbActiveTab === 'schemes' && aiSchemeKeywords.length > 0 && (
+                              <div className="p-3 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950/40 border border-saffron/40 rounded-xl space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="font-bold text-saffron flex items-center gap-1.5">
+                                    <Sparkles size={13} />
+                                    Gemini Semantic Keywords ({aiSchemeKeywords.length}):
+                                  </span>
+                                  <span className="text-[11px] text-emerald-400 font-mono">
+                                    {aiSearchResults?.length ?? 0} matching schemes in MongoDB
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {aiSchemeKeywords.map((kw, i) => (
+                                    <span
+                                      key={i}
+                                      className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-saffron/15 text-orange-200 border border-saffron/30"
+                                    >
+                                      #{kw}
+                                    </span>
+                                  ))}
+                                </div>
+                                {aiSchemeExplanation && (
+                                  <p className="text-[11px] text-gray-300 italic">
+                                    🤖 <strong>Gemini Analysis:</strong> {aiSchemeExplanation}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Collection Data Render */}
+                          <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                            {/* 1. Schemes */}
+                            {dbActiveTab === 'schemes' && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {(aiSearchResults || dbSchemes)
+                                  .filter((s) => {
+                                    if (aiSearchResults) return true;
+                                    if (!dbFilterText) return true;
+                                    const t = `${s.scheme_name} ${s.ministry} ${s.category} ${s.benefits} ${s.official_fact}`.toLowerCase();
+                                    return t.includes(dbFilterText.toLowerCase());
+                                  })
+                                  .map((s, idx) => (
+                                    <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <h4 className="font-bold text-white text-sm">{s.scheme_name}</h4>
+                                        <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 font-bold whitespace-nowrap">
+                                          {s.fee_inr === 0 ? 'Zero Fee' : `₹${s.fee_inr}`}
+                                        </span>
+                                      </div>
+                                      <div className="text-gray-400 text-[11px]">{s.ministry}</div>
+                                      <p className="text-gray-300 leading-relaxed">{s.official_fact || s.benefits}</p>
+                                      <div className="pt-1.5 border-t border-cardBorder/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                                        <span className="text-gray-400">Audience: <strong>{s.target_audience || 'All Citizens'}</strong></span>
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setPolicyTopic(s.scheme_name);
+                                              handleExplainPolicy(s.scheme_name);
+                                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                                            }}
+                                            className="px-2.5 py-1 rounded-lg bg-saffron/20 border border-saffron/40 text-saffron hover:bg-saffron hover:text-black font-semibold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                            title="Synthesize Voice Explainer for this scheme in your selected language"
+                                          >
+                                            <span>🎙️</span>
+                                            <span>Explain in Voice</span>
+                                          </button>
+                                          {s.direct_apply_url && (
+                                            <a href={s.direct_apply_url} target="_blank" rel="noreferrer" className="text-indiaGreen font-bold hover:underline">
+                                              Apply on {s.portal_domain || 'Official Portal'} ↗
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+
+                            {/* 2. Notifications */}
+                            {dbActiveTab === 'notifications' && (
+                              <div className="space-y-2.5">
+                                {dbNotifs
+                                  .filter((n) => !dbFilterText || n.title?.toLowerCase().includes(dbFilterText.toLowerCase()) || n.subject?.toLowerCase().includes(dbFilterText.toLowerCase()))
+                                  .map((n, idx) => (
+                                    <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-1.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <h4 className="font-bold text-white text-sm">{n.title}</h4>
+                                        <span className="text-gray-400 text-[11px]">{n.date_of_order}</span>
+                                      </div>
+                                      <div className="text-saffron font-semibold text-[11px]">{n.issuing_ministry} • Gazette: {n.gazette_number}</div>
+                                      <p className="text-gray-300">{n.summary}</p>
+                                      <div className="p-2 rounded bg-slate-800/60 text-emerald-300 text-[11px]">
+                                        <strong>Citizen Entitlement:</strong> {n.citizen_rights}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+
+                            {/* 3. Municipal Laws */}
+                            {dbActiveTab === 'laws' && (
+                              <div className="space-y-2.5">
+                                {dbLaws
+                                  .filter((l) => !dbFilterText || l.title?.toLowerCase().includes(dbFilterText.toLowerCase()))
+                                  .map((l, idx) => (
+                                    <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-1.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <h4 className="font-bold text-white text-sm">{l.title}</h4>
+                                        <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-800/60 text-amber-300 font-bold">
+                                          SLA: {l.sla_clearance_hours} Hours
+                                        </span>
+                                      </div>
+                                      <div className="text-gray-400 text-[11px]">{l.governing_body} • {l.statutory_act}</div>
+                                      <p className="text-gray-300">{l.mandate}</p>
+                                      <div className="p-2 rounded bg-red-950/30 border border-red-900/40 text-red-300 text-[11px]">
+                                        <strong>Citizen Remedy &amp; Officer Penalty:</strong> {l.citizen_remedy || l.compensatory_penalty}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+
+                            {/* 4. Agent Services */}
+                            {dbActiveTab === 'agent_services' && (
+                              <div className="space-y-2.5">
+                                {dbAgentServices
+                                  .filter((a) => !dbFilterText || a.service_name?.toLowerCase().includes(dbFilterText.toLowerCase()))
+                                  .map((a, idx) => (
+                                    <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-2">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <h4 className="font-bold text-white text-sm">{a.service_name}</h4>
+                                        <span className="text-xs px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/60 font-semibold">
+                                          {a.category}
+                                        </span>
+                                      </div>
+                                      <div className="text-gray-400 text-[11px]">Target: {a.target_portal} • Tracking Prefix: {a.tracking_receipt_prefix}</div>
+                                      <div className="p-2 rounded bg-slate-800/60 text-[11px] text-gray-300">
+                                        <strong className="text-saffron block mb-1">Autonomous Execution Workflow Stages:</strong>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                                          {a.execution_stages?.map((st, i) => (
+                                            <div key={i} className="p-1.5 rounded bg-black/40 border border-slate-700">
+                                              <div className="font-bold text-emerald-400">{st.pct}% • {st.action}</div>
+                                              <div className="text-[10px] text-gray-400 truncate">{st.desc}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+
+                            {/* 5. Fact Checks */}
+                            {dbActiveTab === 'fact_checks' && (
+                              <div className="space-y-2.5">
+                                {dbFactChecks
+                                  .filter((fc) => !dbFilterText || fc.viral_claim?.toLowerCase().includes(dbFilterText.toLowerCase()))
+                                  .map((fc, idx) => (
+                                    <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-1.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="px-2 py-0.5 rounded bg-red-950/80 border border-red-800/60 text-red-300 font-bold">
+                                          {fc.verdict}
+                                        </span>
+                                        <span className="text-gray-400 text-[11px]">{fc.source_portal}</span>
+                                      </div>
+                                      <p className="font-bold text-white text-sm">❌ Viral Claim: "{fc.viral_claim}"</p>
+                                      <p className="text-emerald-300 text-xs bg-emerald-950/30 p-2 rounded border border-emerald-900/40">
+                                        <strong>Official Fact:</strong> {fc.official_debunk}
+                                      </p>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+
+                            {/* 6. Portals */}
+                            {dbActiveTab === 'portals' && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                {dbPortals
+                                  .filter((p) => !dbFilterText || p.portal_name?.toLowerCase().includes(dbFilterText.toLowerCase()) || p.domain?.toLowerCase().includes(dbFilterText.toLowerCase()))
+                                  .map((p, idx) => (
+                                    <div key={idx} className="p-3 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-1">
+                                      <div className="font-bold text-white text-sm truncate">{p.portal_name}</div>
+                                      <div className="text-indiaGreen font-mono text-[11px]">{p.domain}</div>
+                                      <div className="text-gray-400 text-[10px] truncate">{p.ministry_or_body}</div>
+                                      <a href={p.url} target="_blank" rel="noreferrer" className="text-saffron text-[11px] font-semibold hover:underline block pt-1">
+                                        Visit Secure Portal ↗
+                                      </a>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        </section>
           </div>
         )}
 
@@ -2728,296 +3040,7 @@ export default function App() {
           </div>
         )}
 
-        {currentMainTab === 'database' && (
-          <div className="space-y-6">
-            <section className="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-lg relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🌐</span>
-                    <h2 className="text-lg font-bold text-white">Decentralized Government Database Explorer</h2>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
-                      MongoDB Atlas Live Sync
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Multi-collection knowledge base accessed symmetrically by Node.js backend, Python forensic engine, and Playwright agent.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={fetchDatabaseExplorer}
-                  disabled={dbLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-darkBg border border-cardBorder rounded-lg hover:bg-slate-700 text-xs font-semibold text-gray-200 transition"
-                >
-                  <RefreshCw size={13} className={dbLoading ? 'animate-spin' : ''} />
-                  <span>Refresh DB Sync</span>
-                </button>
-              </div>
 
-              {/* Collections Overview KPI Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-5">
-                {[
-                  { id: 'schemes', label: 'Official Schemes', count: dbSchemes.length || dbStats?.counts?.official_schemes || 27, icon: '📜' },
-                  { id: 'notifications', label: 'Gazette Notifs', count: dbNotifs.length || dbStats?.counts?.government_notifications || 4, icon: '🏛️' },
-                  { id: 'laws', label: 'Municipal Laws', count: dbLaws.length || dbStats?.counts?.municipal_laws || 4, icon: '⚖️' },
-                  { id: 'agent_services', label: 'Agent Services', count: dbAgentServices.length || dbStats?.counts?.bureaucracy_agent_services || 4, icon: '🤖' },
-                  { id: 'fact_checks', label: 'PIB Fact Checks', count: dbFactChecks.length || dbStats?.counts?.government_fact_checks || 9, icon: '🛡️' },
-                  { id: 'portals', label: 'Official Portals', count: dbPortals.length || dbStats?.counts?.official_portals || 16, icon: '🌐' }
-                ].map((col) => (
-                  <button
-                    key={col.id}
-                    type="button"
-                    onClick={() => setDbActiveTab(col.id)}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      dbActiveTab === col.id
-                        ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-saffron shadow-sm'
-                        : 'bg-darkBg/80 border-cardBorder hover:border-slate-600'
-                    }`}
-                  >
-                    <div className="text-lg mb-1">{col.icon}</div>
-                    <div className="text-[11px] text-gray-400 truncate">{col.label}</div>
-                    <div className="text-base font-bold text-white">{col.count}</div>
-                  </button>
-                ))}
-              </div>
-
-              {/* Filter bar with Gemini AI Yojana Keyword Expansion */}
-              <div className="mb-4 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={dbFilterText}
-                    onChange={(e) => {
-                      setDbFilterText(e.target.value);
-                      if (!e.target.value.trim()) {
-                        setAiSearchResults(null);
-                        setAiSchemeKeywords([]);
-                        setAiSchemeExplanation('');
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAiYojanaSearch();
-                    }}
-                    placeholder={
-                      dbActiveTab === 'schemes'
-                        ? "Search yojanas (e.g. 'fertiliser', 'education loan', 'solar panel', 'kisan')..."
-                        : `Search ${dbActiveTab} in MongoDB Atlas...`
-                    }
-                    className="flex-1 px-3.5 py-2 bg-darkBg border border-cardBorder rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-saffron"
-                  />
-                  {dbActiveTab === 'schemes' && (
-                    <button
-                      type="button"
-                      onClick={() => handleAiYojanaSearch()}
-                      disabled={aiSchemeSearching || !dbFilterText.trim()}
-                      className="px-4 py-2 bg-gradient-to-r from-saffron to-amber-600 hover:from-orange-500 hover:to-amber-700 text-darkBg font-bold text-xs rounded-lg transition disabled:opacity-50 flex items-center gap-1.5 shadow"
-                      title="Call Gemini API to expand keywords and search database"
-                    >
-                      <Sparkles size={14} className={aiSchemeSearching ? 'animate-spin' : ''} />
-                      <span>{aiSchemeSearching ? 'Expanding...' : '✨ Gemini AI Search'}</span>
-                    </button>
-                  )}
-                  {(aiSearchResults || dbFilterText) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDbFilterText('');
-                        setAiSearchResults(null);
-                        setAiSchemeKeywords([]);
-                        setAiSchemeExplanation('');
-                      }}
-                      className="px-3 py-2 bg-cardBorder text-gray-300 hover:bg-slate-700 text-xs rounded-lg transition"
-                      title="Clear search"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-
-                {/* Gemini Generated Keywords & Intent Ribbon */}
-                {dbActiveTab === 'schemes' && aiSchemeKeywords.length > 0 && (
-                  <div className="p-3 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950/40 border border-saffron/40 rounded-xl space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-saffron flex items-center gap-1.5">
-                        <Sparkles size={13} />
-                        Gemini Semantic Keywords ({aiSchemeKeywords.length}):
-                      </span>
-                      <span className="text-[11px] text-emerald-400 font-mono">
-                        {aiSearchResults?.length ?? 0} matching schemes in MongoDB
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {aiSchemeKeywords.map((kw, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-saffron/15 text-orange-200 border border-saffron/30"
-                        >
-                          #{kw}
-                        </span>
-                      ))}
-                    </div>
-                    {aiSchemeExplanation && (
-                      <p className="text-[11px] text-gray-300 italic">
-                        🤖 <strong>Gemini Analysis:</strong> {aiSchemeExplanation}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Collection Data Render */}
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                {/* 1. Schemes */}
-                {dbActiveTab === 'schemes' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {(aiSearchResults || dbSchemes)
-                      .filter((s) => {
-                        if (aiSearchResults) return true;
-                        if (!dbFilterText) return true;
-                        const t = `${s.scheme_name} ${s.ministry} ${s.category} ${s.benefits} ${s.official_fact}`.toLowerCase();
-                        return t.includes(dbFilterText.toLowerCase());
-                      })
-                      .map((s, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="font-bold text-white text-sm">{s.scheme_name}</h4>
-                            <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 font-bold whitespace-nowrap">
-                              {s.fee_inr === 0 ? 'Zero Fee' : `₹${s.fee_inr}`}
-                            </span>
-                          </div>
-                          <div className="text-gray-400 text-[11px]">{s.ministry}</div>
-                          <p className="text-gray-300 leading-relaxed">{s.official_fact || s.benefits}</p>
-                          <div className="pt-1.5 border-t border-cardBorder/60 flex items-center justify-between text-[11px]">
-                            <span className="text-gray-400">Audience: <strong>{s.target_audience || 'All Citizens'}</strong></span>
-                            {s.direct_apply_url && (
-                              <a href={s.direct_apply_url} target="_blank" rel="noreferrer" className="text-indiaGreen font-bold hover:underline">
-                                Apply on {s.portal_domain || 'Official Portal'} ↗
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {/* 2. Notifications */}
-                {dbActiveTab === 'notifications' && (
-                  <div className="space-y-2.5">
-                    {dbNotifs
-                      .filter((n) => !dbFilterText || n.title?.toLowerCase().includes(dbFilterText.toLowerCase()) || n.subject?.toLowerCase().includes(dbFilterText.toLowerCase()))
-                      .map((n, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-bold text-white text-sm">{n.title}</h4>
-                            <span className="text-gray-400 text-[11px]">{n.date_of_order}</span>
-                          </div>
-                          <div className="text-saffron font-semibold text-[11px]">{n.issuing_ministry} • Gazette: {n.gazette_number}</div>
-                          <p className="text-gray-300">{n.summary}</p>
-                          <div className="p-2 rounded bg-slate-800/60 text-emerald-300 text-[11px]">
-                            <strong>Citizen Entitlement:</strong> {n.citizen_rights}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {/* 3. Municipal Laws */}
-                {dbActiveTab === 'laws' && (
-                  <div className="space-y-2.5">
-                    {dbLaws
-                      .filter((l) => !dbFilterText || l.title?.toLowerCase().includes(dbFilterText.toLowerCase()))
-                      .map((l, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-bold text-white text-sm">{l.title}</h4>
-                            <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-800/60 text-amber-300 font-bold">
-                              SLA: {l.sla_clearance_hours} Hours
-                            </span>
-                          </div>
-                          <div className="text-gray-400 text-[11px]">{l.governing_body} • {l.statutory_act}</div>
-                          <p className="text-gray-300">{l.mandate}</p>
-                          <div className="p-2 rounded bg-red-950/30 border border-red-900/40 text-red-300 text-[11px]">
-                            <strong>Citizen Remedy &amp; Officer Penalty:</strong> {l.citizen_remedy || l.compensatory_penalty}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {/* 4. Agent Services */}
-                {dbActiveTab === 'agent_services' && (
-                  <div className="space-y-2.5">
-                    {dbAgentServices
-                      .filter((a) => !dbFilterText || a.service_name?.toLowerCase().includes(dbFilterText.toLowerCase()))
-                      .map((a, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-bold text-white text-sm">{a.service_name}</h4>
-                            <span className="text-xs px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/60 font-semibold">
-                              {a.category}
-                            </span>
-                          </div>
-                          <div className="text-gray-400 text-[11px]">Target: {a.target_portal} • Tracking Prefix: {a.tracking_receipt_prefix}</div>
-                          <div className="p-2 rounded bg-slate-800/60 text-[11px] text-gray-300">
-                            <strong className="text-saffron block mb-1">Autonomous Execution Workflow Stages:</strong>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                              {a.execution_stages?.map((st, i) => (
-                                <div key={i} className="p-1.5 rounded bg-black/40 border border-slate-700">
-                                  <div className="font-bold text-emerald-400">{st.pct}% • {st.action}</div>
-                                  <div className="text-[10px] text-gray-400 truncate">{st.desc}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {/* 5. Fact Checks */}
-                {dbActiveTab === 'fact_checks' && (
-                  <div className="space-y-2.5">
-                    {dbFactChecks
-                      .filter((fc) => !dbFilterText || fc.viral_claim?.toLowerCase().includes(dbFilterText.toLowerCase()))
-                      .map((fc, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="px-2 py-0.5 rounded bg-red-950/80 border border-red-800/60 text-red-300 font-bold">
-                              {fc.verdict}
-                            </span>
-                            <span className="text-gray-400 text-[11px]">{fc.source_portal}</span>
-                          </div>
-                          <p className="font-bold text-white text-sm">❌ Viral Claim: "{fc.viral_claim}"</p>
-                          <p className="text-emerald-300 text-xs bg-emerald-950/30 p-2 rounded border border-emerald-900/40">
-                            <strong>Official Fact:</strong> {fc.official_debunk}
-                          </p>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {/* 6. Portals */}
-                {dbActiveTab === 'portals' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                    {dbPortals
-                      .filter((p) => !dbFilterText || p.portal_name?.toLowerCase().includes(dbFilterText.toLowerCase()) || p.domain?.toLowerCase().includes(dbFilterText.toLowerCase()))
-                      .map((p, idx) => (
-                        <div key={idx} className="p-3 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-1">
-                          <div className="font-bold text-white text-sm truncate">{p.portal_name}</div>
-                          <div className="text-indiaGreen font-mono text-[11px]">{p.domain}</div>
-                          <div className="text-gray-400 text-[10px] truncate">{p.ministry_or_body}</div>
-                          <a href={p.url} target="_blank" rel="noreferrer" className="text-saffron text-[11px] font-semibold hover:underline block pt-1">
-                            Visit Secure Portal ↗
-                          </a>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-        )}
 </main>
 
       {/* ── I. Footer ── */}
