@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare, X, Send, Mic, MicOff, Volume2, VolumeX,
@@ -34,7 +35,7 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
     }
   }, [messages, isOpen]);
 
-  const handleSend = (textToSend) => {
+  const handleSend = async (textToSend) => {
     const q = textToSend || input.trim();
     if (!q) return;
 
@@ -47,16 +48,31 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
 
-    // Generate intelligent civic response via reasoning engine
-    setTimeout(() => {
+    try {
+      const res = await axios.post('/api/ai/chat', {
+        question: q,
+        preferredLanguage: selectedLang,
+      });
+      const replyText = res.data?.reply || res.data?.answer || res.data?.response || generateCivicResponse(q);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'ai',
+          content: replyText,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } catch {
       const replyText = generateCivicResponse(q);
-      const aiMsg = {
-        role: 'ai',
-        content: replyText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-    }, 400);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'ai',
+          content: replyText,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    }
   };
 
   // Fixed Non-Repeating Speech-to-Text
