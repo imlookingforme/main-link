@@ -484,6 +484,8 @@ function FileTypeIcon({ type }) {
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
+  // ── Navigation & Main Tab ──
+
   // ── Toasts ──
   const [toasts, setToasts] = useState([]);
   const toastIdRef = useRef(0);
@@ -618,11 +620,7 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (currentMainTab === 'database') {
-      fetchDatabaseExplorer();
-    }
-  }, [currentMainTab]);
+
   useEffect(() => {
     fetchGrievances();
     const interval = setInterval(fetchGrievances, 30000);
@@ -739,6 +737,12 @@ export default function App() {
       setDbLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (currentMainTab === 'database') {
+      fetchDatabaseExplorer();
+    }
+  }, [currentMainTab]);
 
   const handleRunAudit = async () => {
     if (!auditClaim.trim()) {
