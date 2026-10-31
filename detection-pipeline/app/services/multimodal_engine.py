@@ -100,9 +100,11 @@ class MultimodalFactAndDeepfakeEngine:
         self._nli_tokenizer = None
         self._nli_model = None
         self._embedder = None
+        self.registry_embeddings = None
 
         # ── Ground-Truth Official Scheme Registry (Synced with MongoDB Atlas) ──
         self.gov_registry = self._load_registry_from_mongo()
+        self._init_registry_embeddings()
 
     def _load_registry_from_mongo(self) -> List[Dict[str, Any]]:
         """Loads official scraped schemes directly from MongoDB Atlas collection."""
@@ -202,11 +204,22 @@ class MultimodalFactAndDeepfakeEngine:
                 ),
                 "fee_inr": 0,
                 "portal_domain": "pmvishwakarma.gov.in"
+            },
+            {
+                "scheme_id": "PM-VIDYALAXMI-2026",
+                "scheme_name": "PM Vidyalaxmi Scheme (Higher Education Loan Support)",
+                "ministry": "Ministry of Education (Department of Higher Education)",
+                "source": "https://vidyalakshmi.co.in",
+                "direct_apply_url": "https://vidyalakshmi.co.in",
+                "official_fact": (
+                    "PM Vidyalaxmi provides collateral-free, guarantor-free education loans for students "
+                    "in top 860 NIRF-ranked Higher Education Institutions. 75% credit guarantee up to ₹7.5 Lakh "
+                    "and 3% interest subvention up to ₹10 Lakh for families earning up to ₹8 Lakh/year. Zero application fee."
+                ),
+                "fee_inr": 0,
+                "portal_domain": "vidyalakshmi.co.in"
             }
         ]
-
-        # Precompute embeddings lazily when needed
-        self.registry_embeddings = None
 
     def _init_registry_embeddings(self):
         """Precompute registry embeddings for instant RAG lookup."""
@@ -222,14 +235,22 @@ class MultimodalFactAndDeepfakeEngine:
     # ────────────────────────── Model Loaders (Lazy) ──────────────────────────
 
     def _get_vis_model(self):
+        if getattr(self, '_vis_model_failed', False):
+            return None, None
         if self._vis_model is None and TRANSFORMERS_AVAILABLE:
             try:
-                logger.info(f"Loading Visual Deepfake Model: {self.vis_model_id}")
-                self._vis_processor = AutoImageProcessor.from_pretrained(self.vis_model_id)
-                self._vis_model = AutoModelForImageClassification.from_pretrained(self.vis_model_id).to(self.device)
+                self._vis_processor = AutoImageProcessor.from_pretrained(self.vis_model_id, local_files_only=True)
+                self._vis_model = AutoModelForImageClassification.from_pretrained(self.vis_model_id, local_files_only=True).to(self.device)
                 self._vis_model.eval()
-            except Exception as e:
-                logger.warning(f"Could not load {self.vis_model_id}: {e}")
+            except Exception:
+                try:
+                    logger.info(f"Loading Visual Deepfake Model: {self.vis_model_id}")
+                    self._vis_processor = AutoImageProcessor.from_pretrained(self.vis_model_id)
+                    self._vis_model = AutoModelForImageClassification.from_pretrained(self.vis_model_id).to(self.device)
+                    self._vis_model.eval()
+                except Exception as e:
+                    logger.warning(f"Could not load {self.vis_model_id} (using physical ELA/Laplacian forensics): {e}")
+                    self._vis_model_failed = True
         return self._vis_model, self._vis_processor
 
     def _get_aud_model(self):
@@ -258,44 +279,75 @@ class MultimodalFactAndDeepfakeEngine:
 
     @torch.no_grad()
     def audit_image_deepfake(self, image: Image.Image | str | np.ndarray) -> dict:
-        """Runs spatial ViT forensics to detect GAN/Diffusion manipulation."""
+        """Runs spatial ViT forensics + Error Level Analysis (ELA) + FFT spectral forensics."""
         flags = []
         if isinstance(image, str):
             image = Image.open(image).convert("RGB")
         elif isinstance(image, np.ndarray):
             image = Image.fromarray(image).convert("RGB")
 
+        # 1. Error Level Analysis (ELA) — detects spliced text/QR overlays & edits
+        img_np = np.array(image, dtype=np.float32)
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG", quality=90)
+        buf.seek(0)
+        recompressed = np.array(Image.open(buf).convert("RGB"), dtype=np.float32)
+        ela_diff = np.abs(img_np - recompressed)
+        ela_score = float(np.percentile(ela_diff, 98) / 255.0)  # 98th percentile localized splice peak
+
+        # 2. High-Frequency Laplacian Sensor Noise & FFT Spectral Anomaly
+        gray = np.mean(img_np, axis=2)
+        try:
+            from scipy import ndimage
+            lap_var = float(np.var(ndimage.laplace(gray)))
+        except Exception:
+            lap_var = float(np.var(gray))
+
+        fft_mag = np.abs(np.fft.fft2(gray))
+        spectral_flatness = float(np.exp(np.mean(np.log(fft_mag + 1e-8))) / (np.mean(fft_mag) + 1e-8))
+
+        # Compute deterministic physical anomaly score in [0.02, 0.96] specific to this image's pixels
+        ela_anomaly = min(max((ela_score - 0.08) / 0.25, 0.0), 1.0)
+        smoothness_anomaly = 1.0 if lap_var < 45.0 else max(0.0, (180.0 - lap_var) / 300.0)
+        heuristic_fake_prob = float(np.clip(0.55 * ela_anomaly + 0.45 * smoothness_anomaly, 0.03, 0.95))
+
+        if ela_score > 0.18:
+            flags.append(f"Error Level Analysis (ELA) detected localized splice/text overlay (peak delta={ela_score:.2f})")
+        if lap_var < 55.0:
+            flags.append(f"Unnatural GAN/Diffusion surface smoothing (Laplacian variance={lap_var:.1f})")
+
+        # 3. Neural ViT Model Inference (if loaded)
+        vit_fake_score = None
+        raw_scores = {
+            "ela_splice_index": round(ela_score, 4),
+            "laplacian_noise_var": round(lap_var, 2),
+            "spectral_flatness": round(spectral_flatness, 4),
+        }
         model, processor = self._get_vis_model()
         if model is not None and processor is not None:
             try:
                 inputs = processor(images=image, return_tensors="pt").to(self.device)
                 logits = model(**inputs).logits
                 probs = torch.softmax(logits, dim=-1).cpu().numpy()[0]
-                
                 id2label = model.config.id2label if hasattr(model.config, "id2label") else {0: "real", 1: "fake"}
-                result = {id2label[i].lower(): float(probs[i]) for i in range(len(probs))}
-                fake_score = result.get("deepfake", result.get("fake", float(probs[1]) if len(probs) > 1 else 0.5))
-                
-                if fake_score > 0.65:
-                    flags.append(f"Visual facial manipulation detected ({fake_score:.1%} synthetic probability)")
-                
-                return {
-                    "modality": "image_deepfake",
-                    "is_synthetic": fake_score > 0.65,
-                    "synthetic_probability": round(float(fake_score), 4),
-                    "raw_scores": result,
-                    "flags": flags
-                }
+                for i in range(min(len(probs), 5)):
+                    raw_scores[f"vit_{id2label[i].lower()}"] = round(float(probs[i]), 4)
+                vit_fake_score = raw_scores.get("vit_deepfake", raw_scores.get("vit_fake", float(probs[1]) if len(probs) > 1 else None))
             except Exception as e:
-                logger.warning(f"Visual deepfake inference failed: {e}")
+                logger.warning(f"Visual deepfake ViT inference failed: {e}")
 
-        # Heuristic fallback if model unavailable
+        final_fake_prob = (0.6 * vit_fake_score + 0.4 * heuristic_fake_prob) if vit_fake_score is not None else heuristic_fake_prob
+        if final_fake_prob > 0.58:
+            flags.append(f"Visual manipulation / synthetic composite detected ({final_fake_prob:.1%} probability)")
+
         return {
             "modality": "image_deepfake",
-            "is_synthetic": False,
-            "synthetic_probability": 0.15,
-            "raw_scores": {"real": 0.85, "fake": 0.15},
-            "flags": flags
+            "is_synthetic": final_fake_prob > 0.58,
+            "synthetic_probability": round(float(final_fake_prob), 4),
+            "ela_score": round(ela_score, 4),
+            "laplacian_variance": round(lap_var, 2),
+            "raw_scores": raw_scores,
+            "flags": flags,
         }
 
     @torch.no_grad()

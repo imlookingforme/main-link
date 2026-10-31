@@ -1078,29 +1078,28 @@ const auditUpload = multer({ storage: multer.memoryStorage() });
 
 app.post(
   "/api/audit/comprehensive",
-  auditUpload.fields([{ name: "image", maxCount: 1 }, { name: "audio", maxCount: 1 }, { name: "file", maxCount: 1 }]),
+  auditUpload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "audio", maxCount: 1 },
+    { name: "file", maxCount: 1 },
+  ]),
   async (req, res) => {
+    const claimText = req.body.text || req.body.claim_text || "";
+    const mediaFile =
+      req.files?.image?.[0] || req.files?.file?.[0] || req.files?.audio?.[0] || null;
+
+    // 1. Try Python FastAPI ML Pipeline (:8000) first
     try {
       const axios = require("axios");
       const FormData = require("form-data");
       const form = new FormData();
-
-      const claimText = req.body.text || req.body.claim_text || "";
       form.append("text", claimText);
 
-      const imgFile = req.files?.image?.[0] || req.files?.file?.[0];
-      if (imgFile) {
-        form.append("image", imgFile.buffer, {
-          filename: imgFile.originalname,
-          contentType: imgFile.mimetype,
-        });
-      }
-
-      const audFile = req.files?.audio?.[0];
-      if (audFile) {
-        form.append("audio", audFile.buffer, {
-          filename: audFile.originalname,
-          contentType: audFile.mimetype,
+      if (mediaFile) {
+        const fieldName = mediaFile.mimetype?.startsWith("audio/") ? "audio" : "image";
+        form.append(fieldName, mediaFile.buffer, {
+          filename: mediaFile.originalname,
+          contentType: mediaFile.mimetype,
         });
       }
 
@@ -1110,43 +1109,26 @@ app.post(
         timeout: 25000,
       });
       return res.json(resp.data);
-    } catch (err) {
-      console.warn("[Audit Proxy] FastAPI unreachable, running Express registry verification:", err.message);
-      const claimText = (req.body.text || req.body.claim_text || "").toLowerCase();
-      const hasFee = /fee|pay|rs\.?\s*\d+|₹\s*\d+|upi/i.test(claimText);
-      const hasBadUrl = /\.xyz|\.online|\.site|wa\.me|t\.me/i.test(claimText);
-      const isFake = hasFee || hasBadUrl;
-      const imgFile = req.files?.image?.[0] || req.files?.file?.[0];
-      let media_forensics = null;
-      if (imgFile) {
-        media_forensics = {
-          file_name: imgFile.originalname,
-          file_size: `${(imgFile.size / 1024).toFixed(1)} KB`,
-          media_type: imgFile.mimetype.includes("image") ? "IMAGE_CIRCULAR" : "PDF_DOCUMENT",
-          synthetic_probability: isFake ? "0.91 (High forgery likelihood)" : "0.08 (Authentic upload)",
-          visual_artifacts: isFake ? ["Altered Government Emblem detected", "Fraudulent UPI Payment QR overlay"] : ["Official Letterhead Verified"]
-        };
-      }
-      return res.json({
-        verdict: isFake ? "FAKE / SCAM" : "VERIFIED GENUINE",
-        confidence: isFake ? 0.95 : 0.92,
-        fake_probability: isFake ? 0.92 : 0.08,
-        matched_scheme_id: "NSP-POST-MATRIC-2026",
-        official_source: "https://scholarships.gov.in",
-        direct_apply_url: "https://scholarships.gov.in/",
-        official_portal_url: "https://scholarships.gov.in/",
-        suspicious_flags: [
-          ...(hasFee ? ["Unsanctioned fee demand detected (Govt schemes are 100% free)"] : []),
-          ...(hasBadUrl ? ["Non-.gov.in phishing link detected"] : []),
-        ],
-        ground_truth_excerpt:
-          "All official Central & State Government welfare schemes operate with zero application fees exclusively on .gov.in / .nic.in portals.",
-        mascot_explanation: isFake
-          ? "🚨 Civic Mitra Alert: Fraudulent fee or non-gov link detected!"
-          : "✅ Civic Mitra Verified against official MongoDB registry.",
-        can_auto_apply: !isFake,
-        media_forensics,
+    } catch (fastApiErr) {
+      console.warn(
+        "[Audit Proxy] FastAPI error/offline, executing real Gemini Multimodal Vision + Registry Forensics:",
+        fastApiErr.message
+      );
+    }
+
+    // 2. Real Multimodal Gemini Vision + Registry Forensics (NEVER static 0.08/0.91)
+    try {
+      const geminiAudit = await aiAgent.auditMediaAndClaimWithGemini({
+        claimText,
+        fileBuffer: mediaFile ? mediaFile.buffer : null,
+        mimeType: mediaFile ? mediaFile.mimetype : null,
+        fileName: mediaFile ? mediaFile.originalname : null,
+        fileSize: mediaFile ? mediaFile.size : 0,
       });
+      return res.json(geminiAudit);
+    } catch (err) {
+      console.error("[Audit Error]", err.message);
+      return res.status(500).json({ error: "Forensic audit failed: " + err.message });
     }
   }
 );

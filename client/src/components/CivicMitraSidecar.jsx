@@ -92,17 +92,25 @@ export default function CivicMitraSidecar({ initialOpen = false }) {
 
     baseInputRef.current = input;
     const recognition = new SpeechRecognition();
-    recognition.lang = selectedLang === 'Hindi' ? 'hi-IN' : 'en-IN';
+    const langCodes = { Hindi: 'hi-IN', English: 'en-IN', Telugu: 'te-IN', Tamil: 'ta-IN', Kannada: 'kn-IN', Bengali: 'bn-IN' };
+    recognition.lang = langCodes[selectedLang] || (selectedLang === 'Hindi' ? 'hi-IN' : 'en-IN');
     recognition.interimResults = false;
     recognition.continuous = false;
 
     recognition.onresult = (e) => {
       let fullTranscript = '';
       for (let i = 0; i < e.results.length; ++i) {
-        fullTranscript += e.results[i][0].transcript;
+        fullTranscript += e.results[i][0].transcript + ' ';
       }
+      const words = fullTranscript.trim().split(/\s+/);
+      const deduped = [];
+      for (let i = 0; i < words.length; i++) {
+        if (i > 0 && words[i].toLowerCase() === words[i - 1].toLowerCase()) continue;
+        deduped.push(words[i]);
+      }
+      const clean = deduped.join(' ');
       const prefix = baseInputRef.current ? baseInputRef.current.trim() + ' ' : '';
-      setInput(prefix + fullTranscript.trim());
+      setInput(prefix + clean);
     };
 
     recognition.onend = () => setIsListening(false);
