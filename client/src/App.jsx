@@ -717,6 +717,7 @@ export default function App() {
 
   // ── Decentralized Database Explorer State ──
   const [dbActiveTab, setDbActiveTab] = useState('schemes');
+  const [schemeDisplayLimit, setSchemeDisplayLimit] = useState(40);
   const [dbLoading, setDbLoading] = useState(false);
   const [dbStats, setDbStats] = useState(null);
   const [dbSchemes, setDbSchemes] = useState([]);
@@ -1942,7 +1943,7 @@ export default function App() {
                           {/* Collections Overview KPI Cards */}
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-5">
                             {[
-                              { id: 'schemes', label: 'Official Schemes', count: dbSchemes.length || dbStats?.counts?.official_schemes || 27, icon: '📜' },
+                              { id: 'schemes', label: 'Official Schemes', count: dbSchemes.length || dbStats?.counts?.official_schemes || 5041, icon: '📜' },
                               { id: 'notifications', label: 'Gazette Notifs', count: dbNotifs.length || dbStats?.counts?.government_notifications || 4, icon: '🏛️' },
                               { id: 'laws', label: 'Municipal Laws', count: dbLaws.length || dbStats?.counts?.municipal_laws || 4, icon: '⚖️' },
                               { id: 'agent_services', label: 'Agent Services', count: dbAgentServices.length || dbStats?.counts?.bureaucracy_agent_services || 4, icon: '🤖' },
@@ -2053,52 +2054,79 @@ export default function App() {
                           {/* Collection Data Render */}
                           <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                             {/* 1. Schemes */}
-                            {dbActiveTab === 'schemes' && (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {(aiSearchResults || dbSchemes)
-                                  .filter((s) => {
-                                    if (aiSearchResults) return true;
-                                    if (!dbFilterText) return true;
-                                    const t = `${s.scheme_name} ${s.ministry} ${s.category} ${s.benefits} ${s.official_fact}`.toLowerCase();
-                                    return t.includes(dbFilterText.toLowerCase());
-                                  })
-                                  .map((s, idx) => (
-                                    <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-2">
-                                      <div className="flex items-start justify-between gap-2">
-                                        <h4 className="font-bold text-white text-sm">{s.scheme_name}</h4>
-                                        <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 font-bold whitespace-nowrap">
-                                          {s.fee_inr === 0 ? 'Zero Fee' : `₹${s.fee_inr}`}
-                                        </span>
-                                      </div>
-                                      <div className="text-gray-400 text-[11px]">{s.ministry}</div>
-                                      <p className="text-gray-300 leading-relaxed">{s.official_fact || s.benefits}</p>
-                                      <div className="pt-1.5 border-t border-cardBorder/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                                        <span className="text-gray-400">Audience: <strong>{s.target_audience || 'All Citizens'}</strong></span>
-                                        <div className="flex items-center gap-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setPolicyTopic(s.scheme_name);
-                                              handleExplainPolicy(s.scheme_name);
-                                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                                            }}
-                                            className="px-2.5 py-1 rounded-lg bg-saffron/20 border border-saffron/40 text-saffron hover:bg-saffron hover:text-black font-semibold text-[11px] transition flex items-center gap-1 cursor-pointer"
-                                            title="Synthesize Voice Explainer for this scheme in your selected language"
-                                          >
-                                            <span>🎙️</span>
-                                            <span>Explain in Voice</span>
-                                          </button>
-                                          {s.direct_apply_url && (
-                                            <a href={s.direct_apply_url} target="_blank" rel="noreferrer" className="text-indiaGreen font-bold hover:underline">
-                                              Apply on {s.portal_domain || 'Official Portal'} ↗
-                                            </a>
-                                          )}
+                            {dbActiveTab === 'schemes' && (() => {
+                              const filtered = (aiSearchResults || dbSchemes).filter((s) => {
+                                if (aiSearchResults) return true;
+                                if (!dbFilterText) return true;
+                                const t = `${s.scheme_name || ''} ${s.ministry || ''} ${s.category || ''} ${s.benefits || ''} ${s.official_fact || ''}`.toLowerCase();
+                                return t.includes(dbFilterText.toLowerCase());
+                              });
+                              const displayed = filtered.slice(0, schemeDisplayLimit);
+                              return (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
+                                    <span>
+                                      Showing <strong className="text-white">{displayed.length}</strong> of <strong className="text-indiaGreen font-mono">{filtered.length.toLocaleString()}</strong> official government schemes
+                                    </span>
+                                    {filtered.length > schemeDisplayLimit && (
+                                      <span className="text-saffron text-[10px]">
+                                        Click 'Load More' or search keyword to filter
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {displayed.map((s, idx) => (
+                                      <div key={idx} className="p-3.5 rounded-xl bg-darkBg/90 border border-cardBorder text-xs space-y-2 hover:border-saffron/40 transition">
+                                        <div className="flex items-start justify-between gap-2">
+                                          <h4 className="font-bold text-white text-sm">{s.scheme_name}</h4>
+                                          <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 font-bold whitespace-nowrap">
+                                            {s.fee_inr === 0 ? 'Zero Fee' : `₹${s.fee_inr}`}
+                                          </span>
+                                        </div>
+                                        <div className="text-gray-400 text-[11px]">{s.ministry}</div>
+                                        <p className="text-gray-300 leading-relaxed line-clamp-3">{s.official_fact || s.benefits}</p>
+                                        <div className="pt-1.5 border-t border-cardBorder/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                                          <span className="text-gray-400">Audience: <strong>{s.target_audience || 'All Citizens'}</strong></span>
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setPolicyTopic(s.scheme_name);
+                                                handleExplainPolicy(s.scheme_name);
+                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                              }}
+                                              className="px-2.5 py-1 rounded-lg bg-saffron/20 border border-saffron/40 text-saffron hover:bg-saffron hover:text-black font-semibold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                              title="Synthesize Voice Explainer for this scheme in your selected language"
+                                            >
+                                              <span>🎙️</span>
+                                              <span>Explain in Voice</span>
+                                            </button>
+                                            {s.direct_apply_url && (
+                                              <a href={s.direct_apply_url} target="_blank" rel="noreferrer" className="text-indiaGreen font-bold hover:underline">
+                                                Apply on {s.portal_domain || 'Official Portal'} ↗
+                                              </a>
+                                            )}
+                                          </div>
                                         </div>
                                       </div>
+                                    ))}
+                                  </div>
+
+                                  {filtered.length > schemeDisplayLimit && (
+                                    <div className="text-center pt-2 pb-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSchemeDisplayLimit((prev) => prev + 50)}
+                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-gray-200 border border-cardBorder rounded-lg text-xs font-semibold transition cursor-pointer"
+                                      >
+                                        Load 50 More Schemes (Remaining: {(filtered.length - schemeDisplayLimit).toLocaleString()})
+                                      </button>
                                     </div>
-                                  ))}
-                              </div>
-                            )}
+                                  )}
+                                </div>
+                              );
+                            })()}
 
                             {/* 2. Notifications */}
                             {dbActiveTab === 'notifications' && (
