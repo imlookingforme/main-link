@@ -74,12 +74,10 @@ const FASTAPI_WS_URL =
 if (API_BASE_URL) {
   axios.defaults.baseURL = API_BASE_URL;
 }
-import {
-  Upload, Mic, MicOff, RefreshCw, Send, AlertTriangle, CheckCircle,
+import { Upload, Mic, MicOff, RefreshCw, Send, AlertTriangle, CheckCircle,
   Clock, MapPin, Shield, ChevronDown, ChevronUp, X, LogIn, LogOut,
   FileText, Image, File, MessageSquare, BarChart3, Activity, Info,
-  Volume2, VolumeX, Sparkles
-} from 'lucide-react';
+  Volume2, VolumeX, Sparkles, Menu, Landmark, Users, Coins, ExternalLink, Search } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -953,6 +951,53 @@ export default function App() {
   const [playwrightReceipt, setPlaywrightReceipt] = useState(null);
   const playwrightDocRef = useRef(null);
 
+    // ── Navigation Drawer & Sub-Tabs State (3-Lines on Left & Sub-Tabs on Right) ──
+  const [leftNavOpen, setLeftNavOpen] = useState(false);
+  const [tab1SubTab, setTab1SubTab] = useState('search'); // 'search' | 'voice' | 'rights' | 'gazette'
+  const [tab2SubTab, setTab2SubTab] = useState('report'); // 'report' | 'nearby' | 'ecoscore' | 'leaderboard'
+  const [tab3SubTab, setTab3SubTab] = useState('analytics'); // 'analytics' | 'triage' | 'telemetry'
+  const [tab4SubTab, setTab4SubTab] = useState('copilot'); // 'copilot' | 'forensic'
+  const [playingAudioSchemeId, setPlayingAudioSchemeId] = useState(null);
+  const [searchTabQuery, setSearchTabQuery] = useState('');
+
+  const toggleAudioBriefing = (scheme) => {
+    if (!('speechSynthesis' in window)) {
+      addToast('Text-to-speech is not supported in this browser.', 'error');
+      return;
+    }
+
+    if (playingAudioSchemeId === scheme.scheme_id) {
+      window.speechSynthesis.cancel();
+      setPlayingAudioSchemeId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    setPlayingAudioSchemeId(scheme.scheme_id);
+
+    const summaryText = scheme.simpleSummary || `${scheme.scheme_name}. Administered by ${scheme.ministry || 'the Government of India'}. Eligibility: ${scheme.eligibility || 'Eligible citizens across India'}. Key Benefits: ${scheme.benefits || 'Direct welfare support'}. Official government application fee is zero rupees.`;
+
+    const utterance = new SpeechSynthesisUtterance(summaryText);
+    const voices = window.speechSynthesis.getVoices();
+    const regionalVoice = voices.find(v => v.lang === 'en-IN' || v.lang.includes('IN') || v.lang.includes('hi'));
+    if (regionalVoice) utterance.voice = regionalVoice;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.05;
+
+    utterance.onend = () => {
+      setPlayingAudioSchemeId(null);
+    };
+    utterance.onerror = (e) => {
+      if (e.error !== 'canceled' && e.error !== 'interrupted') {
+        console.warn('SpeechSynthesis error:', e);
+      }
+      setPlayingAudioSchemeId(null);
+    };
+
+    window.speechSynthesis.speak(utterance);
+    addToast(`Playing audio brief for ${scheme.scheme_name}...`, 'info');
+  };
+
   // ── Any Scheme Live Portal & Always-On-Display AI Copilot State ──
   const [selectedSchemeId, setSelectedSchemeId] = useState('PM-VIDYALAXMI-2026');
   const [activePortalUrl, setActivePortalUrl] = useState('https://vidyalakshmi.co.in');
@@ -990,6 +1035,10 @@ export default function App() {
   const [aiSchemeExplanation, setAiSchemeExplanation] = useState('');
   const [aiSchemeSearching, setAiSchemeSearching] = useState(false);
   const [aiSearchResults, setAiSearchResults] = useState(null);
+  const aiYojanaLoading = aiSchemeSearching;
+  const aiYojanaKeyword = aiSchemeKeywords.length > 0 ? aiSchemeKeywords.join(', ') : '';
+  const setAiYojanaKeyword = () => setAiSchemeKeywords([]);
+  const filteredDbSchemes = aiSearchResults;
 
   const handleAiYojanaSearch = async (queryText) => {
     const q = (queryText !== undefined ? queryText : dbFilterText).trim();
@@ -1985,18 +2034,176 @@ Provide a concise, super helpful real-time response assisting them to fill detai
       {/* ── A. Tricolor Top Bar ── */}
       <div className="h-1.5 w-full" style={{ background: 'linear-gradient(to right, #FF9933 33%, #FFFFFF 33%, #FFFFFF 66%, #138808 66%)' }} />
 
+      {/* ── Left Navigation Drawer (Accessible via Three Lines) ── */}
+      {leftNavOpen && (
+        <>
+          <div
+            onClick={() => setLeftNavOpen(false)}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 transition-opacity animate-in fade-in"
+          />
+
+          <aside className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-slate-950 border-r border-slate-800 z-50 p-5 shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-left duration-200">
+            <div className="space-y-6">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🏛️</span>
+                  <div>
+                    <h2 className="font-bold text-white text-base">
+                      <span className="text-saffron">main</span>-<span className="text-indiaGreen">link</span>
+                    </h2>
+                    <p className="text-[10px] text-gray-400">All Modules &amp; Portals</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLeftNavOpen(false)}
+                  className="p-1.5 text-gray-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Navigation Tabs List */}
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 block px-1">
+                  Core Civic Systems
+                </span>
+                {[
+                  {
+                    id: 'explainer',
+                    label: 'Policy & Rights Hub',
+                    sub: '5,041 Official Schemes, Rights & Voice Explainer',
+                    icon: '🏛️',
+                    badge: 'Tab 1'
+                  },
+                  {
+                    id: 'report',
+                    label: 'Civic Hazard & Community Hero',
+                    sub: 'Live Camera Triage, Deduplication & Hero XP',
+                    icon: '📸',
+                    badge: 'Tab 2'
+                  },
+                  {
+                    id: 'dashboard',
+                    label: 'Triage & Analytics Dashboard',
+                    sub: 'SLA Compliance, Analytics KPIs & Live Feed',
+                    icon: '📊',
+                    badge: 'Tab 3'
+                  },
+                  {
+                    id: 'forensic',
+                    label: 'Fact-Check & Scheme Apply',
+                    sub: 'Direct Scheme Portal, Copilot & Media Forensics',
+                    icon: '🛡️',
+                    badge: 'Tab 4'
+                  },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setCurrentMainTab(tab.id);
+                      setLeftNavOpen(false);
+                    }}
+                    className={`w-full text-left p-3 rounded-xl border transition flex items-start gap-3 ${
+                      currentMainTab === tab.id
+                        ? 'bg-sky-950/70 border-sky-600 text-white shadow-lg'
+                        : 'bg-slate-900/60 hover:bg-slate-800/80 border-slate-800 text-gray-300'
+                    }`}
+                  >
+                    <span className="text-xl mt-0.5">{tab.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-white truncate">{tab.label}</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-gray-400 font-mono">
+                          {tab.badge}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 truncate mt-0.5">{tab.sub}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick Official Portals */}
+              <div className="pt-2 border-t border-slate-800 space-y-2">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 block px-1">
+                  Official Verification Portals
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <a
+                    href="https://myscheme.gov.in"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-gray-300 hover:text-saffron hover:border-saffron/40 transition flex items-center justify-between"
+                  >
+                    <span>myScheme</span>
+                    <ExternalLink size={11} />
+                  </a>
+                  <a
+                    href="https://pib.gov.in/factcheck.aspx"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-gray-300 hover:text-emerald-400 hover:border-emerald-500/40 transition flex items-center justify-between"
+                  >
+                    <span>PIB Debunk</span>
+                    <ExternalLink size={11} />
+                  </a>
+                  <a
+                    href="https://egazette.gov.in"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-gray-300 hover:text-cyan-400 hover:border-cyan-500/40 transition flex items-center justify-between"
+                  >
+                    <span>eGazette</span>
+                    <ExternalLink size={11} />
+                  </a>
+                  <a
+                    href="https://cpcb.nic.in"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-gray-300 hover:text-amber-400 hover:border-amber-500/40 transition flex items-center justify-between"
+                  >
+                    <span>CPCB AQI</span>
+                    <ExternalLink size={11} />
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Drawer Footer */}
+            <div className="pt-4 border-t border-slate-800 text-[10px] text-gray-400 text-center">
+              <div>main-link Civic AI Engine 2026</div>
+              <div className="text-emerald-400">Zero Middleman Commission</div>
+            </div>
+          </aside>
+        </>
+      )}
+
       {/* ── B. Header ── */}
       <header className="bg-cardBg border-b border-cardBorder">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            {/* Hamburger Button (Three Lines) */}
+            <button
+              type="button"
+              onClick={() => setLeftNavOpen(true)}
+              aria-label="Open Navigation Menu"
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white rounded-xl border border-slate-700 transition shadow flex items-center justify-center shrink-0"
+              title="Open Navigation Menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
               <span>🏛️</span>
               <span>
                 <span className="text-saffron">main</span>-<span className="text-indiaGreen">link</span>
               </span>
             </h1>
             <p className="text-sm text-gray-400 mt-0.5">Transparent Civic Grievance Triage &amp; Multilingual Policy Accountability</p>
-          </div>
+          </div></div>
           <div className="flex items-center gap-2 flex-wrap">
             {isLoggedIn ? (
               <div className="flex items-center gap-3 bg-darkBg/70 px-3.5 py-1.5 rounded-xl border border-cardBorder">
@@ -2056,6 +2263,180 @@ Provide a concise, super helpful real-time response assisting them to fill detai
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* ── Sub-Tabs Subdivided on the Right Bar ── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-sm">
+          {/* Active Module Indicator on Left */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl p-1.5 bg-slate-800 rounded-xl">
+              {currentMainTab === 'explainer' && '🏛️'}
+              {currentMainTab === 'report' && '📸'}
+              {currentMainTab === 'dashboard' && '📊'}
+              {currentMainTab === 'forensic' && '🛡️'}
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm sm:text-base font-bold text-white">
+                  {currentMainTab === 'explainer' && 'Policy & Rights Hub'}
+                  {currentMainTab === 'report' && 'Civic Hazard & Community Hero'}
+                  {currentMainTab === 'dashboard' && 'Triage & Analytics Dashboard'}
+                  {currentMainTab === 'forensic' && 'Fact-Check & Scheme Apply'}
+                </h2>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800">
+                  {currentMainTab === 'explainer' && '5,041 Schemes Database'}
+                  {currentMainTab === 'report' && 'Live Camera & Triage'}
+                  {currentMainTab === 'dashboard' && 'Live Metrics & SLAs'}
+                  {currentMainTab === 'forensic' && 'Portal Copilot & Forensics'}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400 hidden sm:block">
+                {currentMainTab === 'explainer' && 'Find official welfare policies, legal rights, circulars, and regional voice explainers.'}
+                {currentMainTab === 'report' && 'Real-time hazard geo-tagging, spatial clustering, and community volunteer XP.'}
+                {currentMainTab === 'dashboard' && 'Municipal performance indicators, resolution SLAs, and live sensor telemetry.'}
+                {currentMainTab === 'forensic' && 'Direct government portal frame with Always-On-Display AI Copilot and deepfake analysis.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Sub-Tabs Subdivided on the Right */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none self-start md:self-center">
+            {currentMainTab === 'explainer' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTab1SubTab('search')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab1SubTab === 'search' ? 'bg-sky-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  🔍 Schemes Search
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab1SubTab('voice')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab1SubTab === 'voice' ? 'bg-sky-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  🎙️ Voice Explainer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab1SubTab('rights')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab1SubTab === 'rights' ? 'bg-sky-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  ⚖️ My Rights
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab1SubTab('gazette')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab1SubTab === 'gazette' ? 'bg-sky-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  🔔 Gazette &amp; Updates
+                </button>
+              </>
+            )}
+
+            {currentMainTab === 'report' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTab2SubTab('report')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab2SubTab === 'report' ? 'bg-saffron text-slate-950 font-bold shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  📸 Report Hazard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab2SubTab('nearby')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab2SubTab === 'nearby' ? 'bg-saffron text-slate-950 font-bold shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  🗺️ Nearby Feed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab2SubTab('ecoscore')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab2SubTab === 'ecoscore' ? 'bg-saffron text-slate-950 font-bold shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  🌱 EcoScore AQI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab2SubTab('leaderboard')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab2SubTab === 'leaderboard' ? 'bg-saffron text-slate-950 font-bold shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  🏆 Hero Leaderboard
+                </button>
+              </>
+            )}
+
+            {currentMainTab === 'dashboard' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTab3SubTab('analytics')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab3SubTab === 'analytics' ? 'bg-sky-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  📊 KPIs &amp; Charts
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab3SubTab('triage')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab3SubTab === 'triage' ? 'bg-sky-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  📋 Grievances Feed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab3SubTab('telemetry')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab3SubTab === 'telemetry' ? 'bg-sky-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  📡 Live Telemetry
+                </button>
+              </>
+            )}
+
+            {currentMainTab === 'forensic' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTab4SubTab('copilot')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab4SubTab === 'copilot' ? 'bg-emerald-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  🌐 Live Scheme Portal &amp; Copilot
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab4SubTab('forensic')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                    tab4SubTab === 'forensic' ? 'bg-emerald-600 text-white shadow' : 'bg-slate-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  🛡️ Media Forensics Audit
+                </button>
+              </>
+            )}
+          </div>
+        </div>
         {/* ── Top Main Tab Navigation Ribbon ── */}
         <nav className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-cardBorder scrollbar-thin">
           {MAIN_TABS.map((tab) => (
@@ -2084,7 +2465,287 @@ Provide a concise, super helpful real-time response assisting them to fill detai
         {/* ── Tab 1: Multilingual Policy, Rights & Scheme Explainer (Pillar 1) ── */}
         {currentMainTab === 'explainer' && (
           <div className="space-y-6">
-            {/* ── Multilingual Policy, Rights & Scheme Voice Explainer (Pillar 1) ── */}
+                        {/* ── SUB-TAB 1: Find Government Schemes (Layout merged from template) ── */}
+            {tab1SubTab === 'search' && (
+              <div className="space-y-6">
+                {/* Search Section */}
+                <section className="bg-slate-900 rounded-2xl p-6 sm:p-7 shadow-lg border border-slate-800 text-center sm:text-left relative overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 opacity-90" />
+                  
+                  <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
+                    Find Government Schemes
+                  </h2>
+                  <p className="text-gray-400 text-sm mb-6 max-w-2xl">
+                    Search for welfare policies, financial aid, agricultural support, higher education loans, and subsidies across 5,041 official Indian programs.
+                  </p>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAiYojanaSearch(searchTabQuery);
+                    }}
+                    className="relative max-w-3xl mx-auto sm:mx-0"
+                  >
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                      <Search size={20} />
+                    </div>
+                    <input
+                      type="text"
+                      value={searchTabQuery}
+                      onChange={(e) => setSearchTabQuery(e.target.value)}
+                      placeholder="e.g. fertilizer, student loan, solar rooftop, pm kisan..."
+                      className="w-full pl-11 pr-28 py-3.5 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition shadow-inner"
+                    />
+                    <div className="absolute inset-y-0 right-1.5 flex items-center gap-1">
+                      {searchTabQuery && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchTabQuery('');
+                            setAiYojanaKeyword('');
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-white rounded-lg transition"
+                          title="Clear"
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={aiYojanaLoading || !searchTabQuery.trim()}
+                        className="px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition shadow flex items-center gap-1.5"
+                      >
+                        {aiYojanaLoading ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                        <span>Search</span>
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Trending Queries */}
+                  <div className="mt-4 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
+                    <span className="text-xs text-gray-400 font-medium flex items-center gap-1">
+                      <span>🔥</span> Trending Searches:
+                    </span>
+                    {['PM-KISAN', 'Mudra Yojana', 'Ayushman Bharat', 'Vidyalaxmi', 'Fertilizer', 'Solar Rooftop'].map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => {
+                          setSearchTabQuery(chip);
+                          handleAiYojanaSearch(chip);
+                        }}
+                        className="px-3 py-1 bg-slate-800/80 hover:bg-slate-700 text-sky-300 hover:text-white rounded-full text-xs font-medium border border-slate-700/60 transition"
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+
+                  {aiYojanaKeyword && (
+                    <div className="mt-3 text-xs text-emerald-400 flex items-center gap-1.5">
+                      <Sparkles size={13} />
+                      <span>Gemini AI expanded keywords: <strong>{aiYojanaKeyword}</strong> (Querying MongoDB Decentralized Registry)</span>
+                    </div>
+                  )}
+                </section>
+
+                {/* Two-Column Layout: Schemes Results on Left + Latest Updates/Portals on Right */}
+                <div className="flex flex-col lg:flex-row gap-6">
+                  {/* Left Column: Scheme Cards */}
+                  <div className="flex-1 min-w-0">
+                    {aiYojanaLoading && (
+                      <div className="flex flex-col items-center justify-center py-12 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                        <div className="loader mb-4"></div>
+                        <p className="text-gray-400 font-medium animate-pulse text-sm">
+                          Searching 5,041 official schemes via Gemini AI &amp; Registry...
+                        </p>
+                      </div>
+                    )}
+
+                    {!aiYojanaLoading && (() => {
+                      const schemeList = (filteredDbSchemes && filteredDbSchemes.length > 0)
+                        ? filteredDbSchemes
+                        : (dbSchemes && dbSchemes.length > 0 ? dbSchemes.slice(0, 15) : (staticGovData.schemes || []).slice(0, 15));
+
+                      if (schemeList.length === 0) {
+                        return (
+                          <div className="text-center py-12 bg-slate-900/60 rounded-2xl border border-slate-800 p-6">
+                            <span className="text-3xl mb-2 block">🔍</span>
+                            <h3 className="text-lg font-semibold text-white">No exact scheme match found</h3>
+                            <p className="text-gray-400 text-xs mt-1 max-w-md mx-auto">
+                              Try searching by broader terms like &quot;student&quot;, &quot;farmer&quot;, &quot;health&quot;, or click one of the trending chips above.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between text-xs text-gray-400 px-1">
+                            <span>Showing {schemeList.length} of {(dbStats?.counts?.official_schemes || 5041).toLocaleString()} official schemes</span>
+                            <span className="text-emerald-400 font-medium">✓ 100% Free Official Registry</span>
+                          </div>
+
+                          {schemeList.map((scheme) => {
+                            const isPlaying = playingAudioSchemeId === scheme.scheme_id;
+                            const ministry = scheme.ministry || 'Ministry of Finance & Social Justice';
+                            const benefits = scheme.benefits || scheme.simpleSummary || 'Direct benefit transfer, subsidy, or low-interest capital for eligible citizens.';
+                            const eligibility = scheme.eligibility || 'All eligible Indian citizens meeting criteria.';
+                            const schemeUrl = scheme.direct_apply_url || scheme.source || 'https://myscheme.gov.in';
+
+                            return (
+                              <article
+                                key={scheme.scheme_id}
+                                className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition shadow-sm relative overflow-hidden"
+                              >
+                                <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-sky-500" />
+                                
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-950 text-sky-400 border border-sky-800 flex items-center gap-1">
+                                        <Landmark size={11} /> {ministry}
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 font-mono">
+                                        {scheme.scheme_id}
+                                      </span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-white hover:text-sky-400 transition">
+                                      {scheme.scheme_name}
+                                    </h3>
+                                  </div>
+
+                                  {/* Audio Briefing Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleAudioBriefing(scheme)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow shrink-0 ${
+                                      isPlaying
+                                        ? 'bg-sky-500 text-slate-950 font-bold animate-pulse playing-audio'
+                                        : 'bg-slate-800 hover:bg-slate-700 text-sky-300'
+                                    }`}
+                                    title="Listen to plain-language regional audio briefing"
+                                  >
+                                    <Volume2 size={14} className={isPlaying ? 'animate-bounce' : ''} />
+                                    <span>{isPlaying ? 'Briefing...' : 'Audio Brief'}</span>
+                                  </button>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                  {/* Eligibility Box */}
+                                  <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
+                                    <div className="font-semibold text-gray-300 flex items-center gap-1.5 mb-1 text-[11px]">
+                                      <Users size={12} className="text-sky-400" /> Who Can Apply?
+                                    </div>
+                                    <p className="text-gray-400 line-clamp-3 leading-relaxed">
+                                      {eligibility}
+                                    </p>
+                                  </div>
+
+                                  {/* Key Benefits Box */}
+                                  <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
+                                    <div className="font-semibold text-gray-300 flex items-center gap-1.5 mb-1 text-[11px]">
+                                      <Coins size={12} className="text-emerald-400" /> Key Benefits
+                                    </div>
+                                    <p className="text-gray-400 line-clamp-3 leading-relaxed">
+                                      {benefits}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-gray-400">Application Fee:</span>
+                                    <span className="text-emerald-400 font-semibold font-mono text-xs">₹0 (Zero Fee)</span>
+                                  </div>
+                                  <a
+                                    href={schemeUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 group text-xs"
+                                  >
+                                    <span>View Official details</span>
+                                    <ExternalLink size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                                  </a>
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Right Column: Widgets */}
+                  <aside className="w-full lg:w-80 flex flex-col gap-5 shrink-0">
+                    {/* Latest Updates Card */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                        <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                          <span className="text-sky-400">🔔</span> Latest Updates
+                        </h4>
+                        <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded-full font-mono">
+                          Active
+                        </span>
+                      </div>
+                      <div className="space-y-3.5 text-xs">
+                        {[
+                          { date: 'Oct 24, 2026', title: 'PM Vidyalaxmi Collateral-Free Higher Education Loan Portal Launched for Top 860 NIRF Institutes.', tag: 'Education' },
+                          { date: 'Oct 18, 2026', title: 'PM-KISAN 19th Installment of ₹2,000 Direct Benefit Disbursed to 9.2 Crore Aadhaar-Seeded Accounts.', tag: 'Agriculture' },
+                          { date: 'Oct 10, 2026', title: 'Ayushman Bharat Golden Card Expansion covers all senior citizens aged 70+ without family income ceilings.', tag: 'Healthcare' },
+                        ].map((item, idx) => (
+                          <div key={idx} className="pb-3 border-b border-slate-800/60 last:border-0 last:pb-0">
+                            <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1 font-mono">
+                              <span>{item.date}</span>
+                              <span className="text-sky-400">{item.tag}</span>
+                            </div>
+                            <p className="text-gray-300 leading-snug hover:text-white transition">
+                              {item.title}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Official Info Sources Card */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                        <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                          <span className="text-emerald-400">🏛️</span> Official Info Sources
+                        </h4>
+                        <span className="text-[10px] text-gray-400">Gov.in APIs</span>
+                      </div>
+                      <div className="space-y-2 text-xs">
+                        {[
+                          { name: 'MyScheme Portal', desc: 'Centralized government beneficiary search', url: 'https://myscheme.gov.in' },
+                          { name: 'India.gov.in', desc: 'National portal of Indian governance', url: 'https://india.gov.in' },
+                          { name: 'Department of Justice', desc: 'Citizen statutory legal rights & nyaya', url: 'https://doj.gov.in' },
+                          { name: 'MyGov.in Innovation', desc: 'Participatory civic democracy platform', url: 'https://mygov.in' },
+                        ].map((src, idx) => (
+                          <a
+                            key={idx}
+                            href={src.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 transition flex items-center justify-between group"
+                          >
+                            <div>
+                              <div className="font-semibold text-white text-xs group-hover:text-sky-400 transition">{src.name}</div>
+                              <div className="text-[10px] text-gray-400 mt-0.5">{src.desc}</div>
+                            </div>
+                            <ExternalLink size={13} className="text-gray-400 group-hover:text-white group-hover:translate-x-0.5 transition-transform" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            )}
+
+
+            {/* ── SUB-TAB 2: Voice Explainer ── */}
+            {tab1SubTab === 'voice' && (
         <section className="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-lg relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-saffron via-white to-indiaGreen opacity-80" />
           
@@ -2303,7 +2964,11 @@ Provide a concise, super helpful real-time response assisting them to fill detai
           )}
         </section>
 
-            <section className="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-lg relative overflow-hidden">
+                        )}
+
+            {/* ── SUB-TAB 4: Gazette & Database Explorer ── */}
+            {tab1SubTab === 'gazette' && (
+<section className="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-lg relative overflow-hidden">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                             <div>
                               <div className="flex items-center gap-2">
@@ -2631,6 +3296,7 @@ Provide a concise, super helpful real-time response assisting them to fill detai
                             )}
                           </div>
                         </section>
+            )}
           </div>
         )}
 
@@ -2677,6 +3343,7 @@ Provide a concise, super helpful real-time response assisting them to fill detai
         {currentMainTab === 'dashboard' && (
           <div className="space-y-6">
             {/* ── C. Telemetry Bar ── */}
+        {(tab3SubTab === 'analytics' || tab3SubTab === 'telemetry') && (
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -2710,7 +3377,9 @@ Provide a concise, super helpful real-time response assisting them to fill detai
             ))}
           </div>
         </section>
+            )}
             {/* ── E. Analytics Dashboard ── */}
+            {tab3SubTab === 'analytics' && (
         <section>
           <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
             <BarChart3 size={20} className="text-saffron" /> Analytics Dashboard
@@ -2780,7 +3449,9 @@ Provide a concise, super helpful real-time response assisting them to fill detai
             </div>
           </div>
         </section>
+            )}
             {/* ── F. Triage Feed ── */}
+            {(tab3SubTab === 'analytics' || tab3SubTab === 'triage') && (
         <section>
           <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
             📋 Live Civic Triage Feed
@@ -3051,6 +3722,7 @@ Provide a concise, super helpful real-time response assisting them to fill detai
             </div>
           )}
         </section>
+        )}
           </div>
         )}
 
@@ -3058,6 +3730,7 @@ Provide a concise, super helpful real-time response assisting them to fill detai
         {currentMainTab === 'forensic' && (
           <div className="space-y-6">
             {/* ── Multimodal Fact-Verification & Deepfake Audit ── */}
+            {tab4SubTab === 'forensic' && (
             <section className="bg-cardBg border border-cardBorder rounded-xl p-5 shadow-lg relative overflow-hidden">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
@@ -3282,8 +3955,10 @@ Provide a concise, super helpful real-time response assisting them to fill detai
               )}
             </section>
 
+            )}
+
             {/* ── Live Official Scheme Portal & Always-On-Display Real-Time AI Copilot ── */}
-            {(() => {
+            {tab4SubTab === 'copilot' && (() => {
               const allSchemes = (dbSchemes && dbSchemes.length > 0) ? dbSchemes : (staticGovData.schemes || []);
               const filteredSchemes = schemeSearchFilter.trim()
                 ? allSchemes.filter(s =>
@@ -3500,13 +4175,22 @@ Provide a concise, super helpful real-time response assisting them to fill detai
                                 <span>
                                   Click any verified detail below to copy it instantly and paste into the portal form:
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyAllCitizenDetails(activeScheme.scheme_name)}
-                                  className="px-2.5 py-1 bg-gradient-to-r from-indiaGreen to-emerald-600 hover:from-emerald-600 hover:to-indiaGreen text-white font-bold rounded text-[10px] transition shadow"
-                                >
-                                  📋 Copy ALL Details Block
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleLaunchWithAadhaar}
+                                    className="px-2.5 py-1 bg-gradient-to-r from-saffron to-amber-600 hover:from-amber-600 hover:to-saffron text-slate-950 font-bold rounded text-[10px] transition shadow flex items-center gap-1"
+                                  >
+                                    <span>🔐</span> 1-Click Aadhaar Instant Auto-Fill
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyAllCitizenDetails(activeScheme.scheme_name)}
+                                    className="px-2.5 py-1 bg-gradient-to-r from-indiaGreen to-emerald-600 hover:from-emerald-600 hover:to-indiaGreen text-white font-bold rounded text-[10px] transition shadow"
+                                  >
+                                    📋 Copy ALL Details Block
+                                  </button>
+                                </div>
                               </div>
 
                               {/* 1-Click Copy Chips */}
